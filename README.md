@@ -24,6 +24,19 @@ Luego entra a `http://localhost:4173/`.
 
 > Nota: crear usuarios y restablecer contrasenas de Supabase Auth desde GitHub Pages no debe hacerse con la service role key en el navegador. Para produccion, crea credenciales desde Supabase Dashboard o agrega una Edge Function segura si decides ampliar la arquitectura.
 
+## Seguridad de claves
+
+La URL de Supabase y la anon key/public key se usan en el navegador y, por diseno, son visibles para cualquier persona que abra la aplicacion. En una app estatica publicada en GitHub Pages, mover esos valores a un `.env` no los vuelve secretos: si el frontend los necesita, terminaran llegando al navegador.
+
+La seguridad real debe depender de:
+
+- Row Level Security en todas las tablas expuestas.
+- Politicas de Storage para mantener archivos privados.
+- Signed URLs para descargas.
+- Nunca publicar `service_role`, secret keys, tokens personales de GitHub ni claves privadas.
+
+Los archivos `.env` estan ignorados por Git para evitar subir secretos operativos por accidente.
+
 ## Estructura
 
 - `index.html`: entrada de la SPA.
