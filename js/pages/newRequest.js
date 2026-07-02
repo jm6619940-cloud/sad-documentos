@@ -2,9 +2,15 @@ import { PRIORITIES } from "../utils/constants.js";
 import { requireFields, validateFiles } from "../utils/validators.js";
 import { pageTitle } from "../components/layout.js";
 import { dataService } from "../services/dataService.js";
-import { alertMessage, toast } from "../components/toast.js";
+import * as toastApi from "../components/toast.js";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";
+
+const toast = toastApi.toast;
+const alertMessage = toastApi.alertMessage || ((title, messages, type = "warning") => {
+  const list = Array.isArray(messages) ? messages : [messages];
+  toast(`${title}: ${list.join(", ")}`, type);
+});
 
 export function renderNewRequest({ user, data, refresh, navigate }) {
   const page = document.createElement("div");
