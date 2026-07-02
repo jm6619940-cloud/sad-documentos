@@ -1,8 +1,7 @@
 import { escapeHtml } from "../utils/security.js";
 
 export function openModal(content, options = {}) {
-  const root = document.querySelector("#modal-root");
-  if (!root) return;
+  const root = getModalRoot();
   closeModal();
   root.innerHTML = `
     <section class="app-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -45,4 +44,13 @@ export function closeModal() {
 
 function handleModalKeydown(event) {
   if (event.key === "Escape") closeModal();
+}
+
+function getModalRoot() {
+  let root = document.querySelector("#modal-root");
+  if (root) return root;
+  root = document.createElement("div");
+  root.id = "modal-root";
+  document.body.append(root);
+  return root;
 }
