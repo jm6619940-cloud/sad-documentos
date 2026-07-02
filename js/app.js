@@ -1,0 +1,97 @@
+import { renderLoginShell, renderAppShell } from "./components/layout.js";
+import { openModal } from "./components/modal.js";
+import { toast } from "./components/toast.js";
+import { dataService } from "./services/dataService.js";
+import { renderDashboard } from "./pages/dashboard.js";
+import { renderNewRequest } from "./pages/newRequest.js";
+import { renderRequestsTable } from "./pages/requestsTable.js";
+import { renderUsers } from "./pages/users.js";
+import { renderCatalogs } from "./pages/catalogs.js";
+import { renderProfile } from "./pages/profile.js";
+import { renderNotifications } from "./pages/notifications.js";
+
+const root = document.querySelector("#app");
+const state = {
+  user: null,
+  data: null,
+  route: "dashboard"
+};
+
+async function init() {
+  state.user = await dataService.getCurrentUser();
+  if (state.user) state.data = await dataService.listData();
+  render();
+}
+
+async function refresh() {
+  state.user = await dataService.getCurrentUser();
+  state.data = state.user ? await dataService.listData() : null;
+  render();
+}
+
+function navigate(route) {
+  state.route = route;
+  render();
+}
+
+async function login(event) {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  try {
+    state.user = await dataService.signIn(form.get("email"), form.get("password"));
+    state.data = await dataService.listData();
+    state.route = "dashboard";
+    toast("Sesion iniciada.", "success");
+    render();
+  } catch (error) {
+    const message = error.message === "Invalid login credentials"
+      ? "Correo o contrasena incorrectos."
+      : error.message || "No fue posible iniciar sesion.";
+    toast(message, "error");
+  }
+}
+
+async function logout() {
+  await dataService.signOut();
+  state.user = null;
+  state.data = null;
+  state.route = "dashboard";
+  render();
+}
+
+function render() {
+  root.innerHTML = "";
+  if (!state.user) {
+    root.append(renderLoginShell(login));
+    return;
+  }
+  const shell = renderAppShell({
+    user: state.user,
+    route: state.route,
+    data: state.data,
+    navigate,
+    logout,
+    openNotifications: () => openModal(renderNotifications({ user: state.user, data: state.data, refresh }), { title: "Notificaciones" })
+  });
+  root.append(shell);
+  const outlet = shell.querySelector("[data-page]");
+  outlet.append(renderPage());
+}
+
+function renderPage() {
+  const context = { user: state.user, data: state.data, refresh, navigate };
+  if (state.route === "new-request") return renderNewRequest(context);
+  if (state.route === "my-requests") return renderRequestsTable({ ...context, mode: "my-requests" });
+  if (state.route === "pending") return renderRequestsTable({ ...context, mode: "pending" });
+  if (state.route === "history") return renderRequestsTable({ ...context, mode: "history" });
+  if (state.route === "users") return renderUsers(context);
+  if (state.route === "catalogs") return renderCatalogs(context);
+  if (state.route === "profile") return renderProfile(context);
+  return renderDashboard(context);
+}
+
+window.addEventListener("unhandledrejection", (event) => {
+  toast(event.reason?.message || "Ocurrio un error inesperado.", "error");
+});
+
+init();

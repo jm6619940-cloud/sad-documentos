@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-label="Mesa de trabajo con documentos">
+  <defs>
+    <linearGradient id="desk" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#eef4ff"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#desk)"/>
+  <rect x="160" y="170" width="780" height="520" rx="18" fill="#fff" stroke="#dce3ec" stroke-width="4"/>
+  <rect x="220" y="230" width="310" height="36" rx="8" fill="#2563eb"/>
+  <rect x="220" y="306" width="590" height="20" rx="6" fill="#cbd5e1"/>
+  <rect x="220" y="354" width="500" height="20" rx="6" fill="#e2e8f0"/>
+  <rect x="220" y="438" width="230" height="150" rx="12" fill="#f8fafc" stroke="#dce3ec" stroke-width="3"/>
+  <rect x="492" y="438" width="230" height="150" rx="12" fill="#f8fafc" stroke="#dce3ec" stroke-width="3"/>
+  <path d="M273 520l42 42 86-96" fill="none" stroke="#0f8f61" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="552" y="492" width="112" height="18" rx="6" fill="#94a3b8"/>
+  <rect x="552" y="532" width="88" height="18" rx="6" fill="#cbd5e1"/>
+  <rect x="820" y="380" width="210" height="280" rx="18" fill="#111827"/>
+  <rect x="850" y="422" width="150" height="18" rx="6" fill="#e2e8f0"/>
+  <rect x="850" y="470" width="118" height="18" rx="6" fill="#94a3b8"/>
+  <circle cx="924" cy="570" r="54" fill="#2563eb"/>
+  <path d="M898 570l18 18 38-45" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

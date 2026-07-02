@@ -1,0 +1,97 @@
+import { ROLES } from "../utils/constants.js";
+import { formatDate, normalize } from "../utils/format.js";
+import { icon } from "../components/icons.js";
+import { pageTitle } from "../components/layout.js";
+import { openModal } from "../components/modal.js";
+import { renderRequestDetail } from "./requestDetail.js";
+
+export function renderRequestsTable({ mode, user, data, refresh }) {
+  const isPending = mode === "pending";
+  const isHistory = mode === "history";
+  const page = document.createElement("div");
+  page.className = "grid";
+  page.append(pageTitle(
+    isPending ? "Pendientes" : isHistory ? "Historial" : "Mis solicitudes",
+    isPending ? "Solicitudes listas para revision." : isHistory ? "Consulta global con filtros." : "Seguimiento de tus solicitudes."
+  ));
+  page.insertAdjacentHTML("beforeend", `
+    <section class="panel">
+      <div class="panel-header">
+        <h2>${isPending ? "Cola de aprobacion" : "Solicitudes"}</h2>
+        <div class="toolbar">
+          <input class="input form-control" data-filter="text" placeholder="Buscar">
+          <select class="form-select" data-filter="estado"><option value="">Estado</option>${unique(data.solicitudes.map((item) => item.estado)).map(option).join("")}</select>
+          <select class="form-select" data-filter="tipo"><option value="">Tipo</option>${data.tipos_documento.map((item) => `<option value="${item.id}">${item.nombre}</option>`).join("")}</select>
+        </div>
+      </div>
+      <div class="table-wrap" data-table></div>
+    </section>
+  `);
+
+  const renderRows = () => {
+    const filters = Object.fromEntries([...page.querySelectorAll("[data-filter]")].map((input) => [input.dataset.filter, input.value]));
+    const rows = filteredRows({ mode, user, data, filters });
+    page.querySelector("[data-table]").innerHTML = `
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>Codigo</th>
+            ${isPending || isHistory ? "<th>Solicitante</th><th>Departamento</th>" : ""}
+            <th>Estado</th>
+            <th>Tipo</th>
+            <th>Prioridad</th>
+            <th>Fecha</th>
+            <th>Ultima actualizacion</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((item) => `
+            <tr>
+              <td><strong>${item.codigo}</strong></td>
+              ${isPending || isHistory ? `<td>${item.creador?.nombre || "-"} ${item.creador?.apellido || ""}</td><td>${item.departamento?.nombre || "-"}</td>` : ""}
+              <td><span class="badge ${item.estado.split(" ")[0]}">${item.estado}</span></td>
+              <td>${item.tipo?.nombre || "-"}</td>
+              <td><span class="badge ${item.prioridad}">${item.prioridad}</span></td>
+              <td>${formatDate(item.created_at)}</td>
+              <td>${formatDate(item.updated_at)}</td>
+              <td><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${item.id}">${icon("eye")} Ver</button></td>
+            </tr>
+          `).join("") || `<tr><td colspan="9">No hay resultados.</td></tr>`}
+        </tbody>
+      </table>
+    `;
+    page.querySelectorAll("[data-detail]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const solicitud = data.solicitudes.find((item) => item.id === button.dataset.detail);
+        openModal(renderRequestDetail({ solicitud, data, user, onChange: refresh }), { title: solicitud.codigo });
+      });
+    });
+  };
+
+  page.querySelectorAll("[data-filter]").forEach((input) => input.addEventListener("input", renderRows));
+  renderRows();
+  return page;
+}
+
+function filteredRows({ mode, user, data, filters }) {
+  return data.solicitudes.filter((item) => {
+    if (mode === "my-requests" && user.rol !== ROLES.ADMIN && item.creado_por !== user.id) return false;
+    if (mode === "pending" && item.estado !== "Pendiente") return false;
+    if (filters.estado && item.estado !== filters.estado) return false;
+    if (filters.tipo && item.tipo_documento_id !== filters.tipo) return false;
+    if (filters.text) {
+      const haystack = normalize(`${item.codigo} ${item.titulo} ${item.descripcion} ${item.creador?.nombre || ""} ${item.departamento?.nombre || ""}`);
+      if (!haystack.includes(normalize(filters.text))) return false;
+    }
+    return true;
+  });
+}
+
+function unique(items) {
+  return [...new Set(items.filter(Boolean))];
+}
+
+function option(value) {
+  return `<option value="${value}">${value}</option>`;
+}
