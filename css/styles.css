@@ -576,20 +576,20 @@ tr:hover td {
   background: #f8fafc;
 }
 
-.modal-backdrop {
+.app-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 60;
   background: rgba(15, 23, 42, 0.42);
-  display: grid;
+  display: flex;
   align-items: center;
-  justify-items: center;
-  place-items: center;
+  justify-content: center;
   padding: 20px;
   overflow: hidden;
 }
 
-.modal {
+.app-modal {
+  position: relative;
   width: min(860px, 96vw);
   max-height: min(82vh, 720px);
   overflow: hidden;
@@ -600,7 +600,7 @@ tr:hover td {
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.24);
 }
 
-.modal-header {
+.app-modal-header {
   padding: 10px 14px;
   border-bottom: 1px solid var(--line);
   display: flex;
@@ -608,11 +608,11 @@ tr:hover td {
   justify-content: space-between;
 }
 
-.modal-header h2 {
+.app-modal-header h2 {
   font-size: 1.35rem;
 }
 
-.modal-body {
+.app-modal-body {
   padding: 12px;
   overflow: auto;
   overscroll-behavior: contain;
@@ -810,11 +810,11 @@ tr:hover td {
   }
 
   .panel,
-  .modal-body {
+  .app-modal-body {
     padding: 12px;
   }
 
-  .modal-backdrop {
+  .app-modal-backdrop {
     padding: 8px;
   }
 
@@ -916,12 +916,12 @@ tr:hover td {
     width: 100%;
   }
 
-  .modal {
+  .app-modal {
     width: calc(100vw - 16px);
     max-height: 86vh;
   }
 
-  .modal-header h2 {
+  .app-modal-header h2 {
     font-size: 1.15rem;
   }
 
