@@ -568,6 +568,24 @@ tr:hover td {
   margin-bottom: 0;
 }
 
+.audit-item {
+  display: grid;
+  gap: 4px;
+}
+
+.audit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.audit-row small {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .preview {
   width: 100%;
   max-height: 280px;

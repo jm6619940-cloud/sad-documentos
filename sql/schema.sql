@@ -317,7 +317,7 @@ create policy "archivos_insert_owner" on public.archivos for insert with check (
 create policy "comentarios_read_scope" on public.comentarios for select using (public.can_access_solicitud(solicitud_id));
 create policy "comentarios_insert_scope" on public.comentarios for insert with check (usuario_id = auth.uid() and public.can_access_solicitud(solicitud_id));
 
-create policy "auditoria_read_admin" on public.auditoria for select using (public.is_admin() or usuario_id = auth.uid());
+create policy "auditoria_read_admin" on public.auditoria for select using (public.is_admin());
 create policy "auditoria_insert_auth" on public.auditoria for insert with check (usuario_id = auth.uid() or public.is_admin());
 
 create policy "notificaciones_owner_read" on public.notificaciones for select using (usuario_id = auth.uid() or public.is_admin());

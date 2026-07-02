@@ -22,6 +22,9 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
 
   const files = data.archivos.filter((file) => file.solicitud_id === solicitud.id);
   const comments = data.comentarios.filter((comment) => comment.solicitud_id === solicitud.id);
+  const auditTrail = user.rol === ROLES.ADMIN
+    ? (data.auditoria || []).filter((entry) => entry.solicitud_id === solicitud.id)
+    : [];
   const view = document.createElement("div");
   view.className = "grid request-detail";
   view.innerHTML = `
@@ -64,6 +67,23 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
         <button class="button secondary btn btn-outline-secondary" type="submit">Agregar comentario</button>
       </form>
     </section>
+    ${user.rol === ROLES.ADMIN ? `
+      <section class="grid">
+        <h3>Historial de auditoria</h3>
+        <ul class="timeline">
+          ${auditTrail.length ? auditTrail.map((entry) => `
+            <li class="timeline-item audit-item">
+              <div class="audit-row">
+                <strong>${escapeHtml(entry.accion)}</strong>
+                <small>${formatDate(entry.created_at)}</small>
+              </div>
+              <p>${escapeHtml(entry.descripcion || "Sin descripcion.")}</p>
+              <small>${escapeHtml(profileName(data, entry.usuario_id))}${entry.user_agent ? ` · ${escapeHtml(shortUserAgent(entry.user_agent))}` : ""}</small>
+            </li>
+          `).join("") : "<li class='empty-state'>Sin eventos de auditoria.</li>"}
+        </ul>
+      </section>
+    ` : ""}
     ${canApprove(user, solicitud) ? `
       <section class="panel">
         <h3>Decision</h3>
@@ -119,4 +139,8 @@ function previewMarkup(file) {
 function profileName(data, id) {
   const profile = data.profiles.find((item) => item.id === id);
   return profile ? `${profile.nombre} ${profile.apellido}` : "Usuario";
+}
+
+function shortUserAgent(value = "") {
+  return value.length > 90 ? `${value.slice(0, 90)}...` : value;
 }
