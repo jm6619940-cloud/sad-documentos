@@ -58,7 +58,8 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
       await refresh();
       navigate("my-requests");
     } catch (error) {
-      toast(error.message || "No fue posible crear la solicitud.", "error");
+      const code = error.code ? ` (${error.code})` : "";
+      toast(`${error.message || "No fue posible crear la solicitud."}${code}`, "error");
     }
   });
   return page;

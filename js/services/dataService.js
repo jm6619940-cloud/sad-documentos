@@ -75,9 +75,11 @@ export const dataService = {
 
   async createRequest(values, files, user) {
     const supabase = await getSupabase();
-    const { data: solicitud, error } = await supabase
+    const solicitudId = crypto.randomUUID();
+    const { error } = await supabase
       .from("solicitudes")
       .insert({
+        id: solicitudId,
         titulo: values.titulo,
         descripcion: values.descripcion,
         tipo_documento_id: values.tipo_documento_id,
@@ -86,17 +88,15 @@ export const dataService = {
         estado: STATUS.PENDING,
         creado_por: user.id,
         observaciones: values.observaciones || ""
-      })
-      .select()
-      .single();
+      });
     if (error) throw error;
 
     for (const file of Array.from(files || [])) {
-      const path = `${solicitud.id}/${crypto.randomUUID()}-${file.name}`;
+      const path = `${solicitudId}/${crypto.randomUUID()}-${file.name}`;
       const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, file, { upsert: false });
       if (upload.error) throw upload.error;
       const insert = await supabase.from("archivos").insert({
-        solicitud_id: solicitud.id,
+        solicitud_id: solicitudId,
         nombre_original: file.name,
         nombre_storage: path.split("/").pop(),
         mime_type: file.type,
@@ -106,8 +106,8 @@ export const dataService = {
       });
       if (insert.error) throw insert.error;
     }
-    await this.audit(user.id, solicitud.id, "CREACION_SOLICITUD", `Solicitud ${solicitud.codigo} creada.`);
-    return solicitud;
+    await this.audit(user.id, solicitudId, "CREACION_SOLICITUD", "Solicitud creada.");
+    return { id: solicitudId };
   },
 
   async addComment(solicitudId, userId, comentario) {

@@ -277,6 +277,22 @@ alter table public.comentarios enable row level security;
 alter table public.auditoria enable row level security;
 alter table public.notificaciones enable row level security;
 
+grant usage on schema public to authenticated;
+
+grant select, update on public.profiles to authenticated;
+grant select on public.departamentos to authenticated;
+grant select on public.tipos_documento to authenticated;
+grant select, insert, update on public.solicitudes to authenticated;
+grant select, insert, update on public.solicitud_aprobadores to authenticated;
+grant select, insert on public.archivos to authenticated;
+grant select, insert on public.comentarios to authenticated;
+grant select, insert on public.auditoria to authenticated;
+grant select, update on public.notificaciones to authenticated;
+
+grant execute on function public.current_profile_role() to authenticated;
+grant execute on function public.is_admin() to authenticated;
+grant execute on function public.can_access_solicitud(uuid) to authenticated;
+
 create policy "profiles_select_scope" on public.profiles for select using (public.is_admin() or id = auth.uid() or public.current_profile_role() = 'aprobador');
 create policy "profiles_admin_write" on public.profiles for all using (public.is_admin()) with check (public.is_admin());
 
