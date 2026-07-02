@@ -117,6 +117,8 @@ for each row execute function public.set_updated_at();
 
 create or replace function public.generar_codigo_solicitud()
 returns trigger
+security definer
+set search_path = public
 language plpgsql
 as $$
 declare
@@ -267,6 +269,7 @@ for each row execute function public.notificar_decision_solicitud();
 alter table public.profiles enable row level security;
 alter table public.departamentos enable row level security;
 alter table public.tipos_documento enable row level security;
+alter table public.solicitud_consecutivos enable row level security;
 alter table public.solicitudes enable row level security;
 alter table public.solicitud_aprobadores enable row level security;
 alter table public.archivos enable row level security;

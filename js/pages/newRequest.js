@@ -52,10 +52,14 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
       errors.forEach((error) => toast(error, "error"));
       return;
     }
-    await dataService.createRequest(values, fileInput.files, user);
-    toast("Solicitud creada correctamente.", "success");
-    await refresh();
-    navigate("my-requests");
+    try {
+      await dataService.createRequest(values, fileInput.files, user);
+      toast("Solicitud creada correctamente.", "success");
+      await refresh();
+      navigate("my-requests");
+    } catch (error) {
+      toast(error.message || "No fue posible crear la solicitud.", "error");
+    }
   });
   return page;
 }
