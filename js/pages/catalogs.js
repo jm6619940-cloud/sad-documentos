@@ -1,6 +1,7 @@
 import { pageTitle } from "../components/layout.js";
 import { dataService } from "../services/dataService.js";
 import { toast } from "../components/toast.js";
+import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderCatalogs({ data, refresh }) {
   const page = document.createElement("div");
@@ -15,7 +16,7 @@ function catalogPanel(table, title, rows, refresh) {
   const panel = document.createElement("section");
   panel.className = "panel";
   panel.innerHTML = `
-    <div class="panel-header"><h2>${title}</h2></div>
+    <div class="panel-header"><h2>${escapeHtml(title)}</h2></div>
     <form class="form" data-catalog-form>
       <input type="hidden" name="id">
       <div class="detail-grid">
@@ -33,10 +34,10 @@ function catalogPanel(table, title, rows, refresh) {
         <tbody>
           ${rows.map((item) => `
             <tr>
-              <td>${item.nombre}</td>
-              <td>${item.descripcion || "-"}</td>
+              <td>${escapeHtml(item.nombre)}</td>
+              <td>${textOrDash(item.descripcion)}</td>
               <td>${new Date(item.created_at).toLocaleDateString("es-DO")}</td>
-              <td><button class="button secondary btn btn-outline-secondary btn-sm" data-edit="${item.id}">Editar</button></td>
+              <td><button class="button secondary btn btn-outline-secondary btn-sm" data-edit="${escapeAttr(item.id)}">Editar</button></td>
             </tr>
           `).join("")}
         </tbody>

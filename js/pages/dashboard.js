@@ -1,6 +1,7 @@
 import { ROLES, STATUS } from "../utils/constants.js";
 import { formatDate } from "../utils/format.js";
 import { pageTitle } from "../components/layout.js";
+import { escapeHtml } from "../utils/security.js";
 
 export function renderDashboard({ user, data, navigate }) {
   const page = document.createElement("div");
@@ -45,9 +46,9 @@ export function renderDashboard({ user, data, navigate }) {
           <tbody>
             ${data.solicitudes.slice(0, 6).map((item) => `
               <tr>
-                <td>${item.codigo}</td>
-                <td>${item.titulo}</td>
-                <td><span class="badge ${item.estado.split(" ")[0]}">${item.estado}</span></td>
+                <td>${escapeHtml(item.codigo)}</td>
+                <td>${escapeHtml(item.titulo)}</td>
+                <td><span class="badge ${escapeHtml(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
                 <td>${formatDate(item.updated_at)}</td>
               </tr>
             `).join("") || `<tr><td colspan="4">No hay solicitudes.</td></tr>`}

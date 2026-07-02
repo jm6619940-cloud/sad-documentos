@@ -4,6 +4,7 @@ import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
 import { renderRequestDetail } from "./requestDetail.js";
+import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
   const isPending = mode === "pending";
@@ -21,7 +22,7 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
         <div class="toolbar">
           <input class="input form-control" data-filter="text" placeholder="Buscar">
           <select class="form-select" data-filter="estado"><option value="">Estado</option>${unique(data.solicitudes.map((item) => item.estado)).map(option).join("")}</select>
-          <select class="form-select" data-filter="tipo"><option value="">Tipo</option>${data.tipos_documento.map((item) => `<option value="${item.id}">${item.nombre}</option>`).join("")}</select>
+          <select class="form-select" data-filter="tipo"><option value="">Tipo</option>${data.tipos_documento.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.nombre)}</option>`).join("")}</select>
         </div>
       </div>
       <div class="table-wrap" data-table></div>
@@ -48,14 +49,14 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
         <tbody>
           ${rows.map((item) => `
             <tr>
-              <td><strong>${item.codigo}</strong></td>
-              ${isPending || isHistory ? `<td>${item.creador?.nombre || "-"} ${item.creador?.apellido || ""}</td><td>${item.departamento?.nombre || "-"}</td>` : ""}
-              <td><span class="badge ${item.estado.split(" ")[0]}">${item.estado}</span></td>
-              <td>${item.tipo?.nombre || "-"}</td>
-              <td><span class="badge ${item.prioridad}">${item.prioridad}</span></td>
+              <td><strong>${escapeHtml(item.codigo)}</strong></td>
+              ${isPending || isHistory ? `<td>${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</td><td>${textOrDash(item.departamento?.nombre)}</td>` : ""}
+              <td><span class="badge ${escapeAttr(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
+              <td>${textOrDash(item.tipo?.nombre)}</td>
+              <td><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></td>
               <td>${formatDate(item.created_at)}</td>
               <td>${formatDate(item.updated_at)}</td>
-              <td><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${item.id}">${icon("eye")} Ver</button></td>
+              <td><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></td>
             </tr>
           `).join("") || `<tr><td colspan="9">No hay resultados.</td></tr>`}
         </tbody>
@@ -93,5 +94,5 @@ function unique(items) {
 }
 
 function option(value) {
-  return `<option value="${value}">${value}</option>`;
+  return `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`;
 }

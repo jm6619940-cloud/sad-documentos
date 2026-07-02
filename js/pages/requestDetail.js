@@ -3,6 +3,7 @@ import { formatBytes, formatDate } from "../utils/format.js";
 import { dataService } from "../services/dataService.js";
 import { toast } from "../components/toast.js";
 import { icon } from "../components/icons.js";
+import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 function canApprove(user, solicitud) {
   return [ROLES.ADMIN, ROLES.APPROVER].includes(user.rol) && solicitud.estado === STATUS.PENDING;
@@ -26,28 +27,28 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
   view.className = "grid";
   view.innerHTML = `
     <div class="detail-grid">
-      <div class="detail-box"><strong>Codigo</strong><p>${solicitud.codigo}</p></div>
-      <div class="detail-box"><strong>Estado</strong><p><span class="badge ${solicitud.estado.split(" ")[0]}">${solicitud.estado}</span></p></div>
-      <div class="detail-box"><strong>Tipo</strong><p>${solicitud.tipo?.nombre || "-"}</p></div>
-      <div class="detail-box"><strong>Prioridad</strong><p><span class="badge ${solicitud.prioridad}">${solicitud.prioridad}</span></p></div>
-      <div class="detail-box"><strong>Solicitante</strong><p>${solicitud.creador?.nombre || "-"} ${solicitud.creador?.apellido || ""}</p></div>
+      <div class="detail-box"><strong>Codigo</strong><p>${escapeHtml(solicitud.codigo)}</p></div>
+      <div class="detail-box"><strong>Estado</strong><p><span class="badge ${escapeAttr(solicitud.estado.split(" ")[0])}">${escapeHtml(solicitud.estado)}</span></p></div>
+      <div class="detail-box"><strong>Tipo</strong><p>${textOrDash(solicitud.tipo?.nombre)}</p></div>
+      <div class="detail-box"><strong>Prioridad</strong><p><span class="badge ${escapeAttr(solicitud.prioridad)}">${escapeHtml(solicitud.prioridad)}</span></p></div>
+      <div class="detail-box"><strong>Solicitante</strong><p>${textOrDash(`${solicitud.creador?.nombre || ""} ${solicitud.creador?.apellido || ""}`)}</p></div>
       <div class="detail-box"><strong>Fecha</strong><p>${formatDate(solicitud.created_at)}</p></div>
     </div>
     <section>
-      <h3>${solicitud.titulo}</h3>
-      <p>${solicitud.descripcion || "Sin descripcion."}</p>
-      ${solicitud.observaciones ? `<p><strong>Observaciones:</strong> ${solicitud.observaciones}</p>` : ""}
-      ${solicitud.comentario_aprobacion ? `<p><strong>Comentario de decision:</strong> ${solicitud.comentario_aprobacion}</p>` : ""}
+      <h3>${escapeHtml(solicitud.titulo)}</h3>
+      <p>${escapeHtml(solicitud.descripcion || "Sin descripcion.")}</p>
+      ${solicitud.observaciones ? `<p><strong>Observaciones:</strong> ${escapeHtml(solicitud.observaciones)}</p>` : ""}
+      ${solicitud.comentario_aprobacion ? `<p><strong>Comentario de decision:</strong> ${escapeHtml(solicitud.comentario_aprobacion)}</p>` : ""}
     </section>
     <section>
       <div class="panel-header"><h3>Archivos</h3></div>
       <ul class="file-list">
         ${files.length ? files.map((file) => `
           <li class="file-item">
-            <strong>${file.nombre_original}</strong>
-            <p>${file.extension?.toUpperCase()} · ${formatBytes(file.tamano)}</p>
+            <strong>${escapeHtml(file.nombre_original)}</strong>
+            <p>${escapeHtml(file.extension?.toUpperCase())} · ${formatBytes(file.tamano)}</p>
             ${previewMarkup(file)}
-            <button class="button secondary btn btn-outline-secondary btn-sm" data-download="${file.id}">${icon("download")} Descargar</button>
+            <button class="button secondary btn btn-outline-secondary btn-sm" data-download="${escapeAttr(file.id)}">${icon("download")} Descargar</button>
           </li>
         `).join("") : "<li class='empty-state'>No hay archivos adjuntos.</li>"}
       </ul>
@@ -55,7 +56,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     <section class="grid">
       <h3>Comentarios</h3>
       <ul class="timeline">
-        ${comments.length ? comments.map((comment) => `<li class="timeline-item"><strong>${comment.usuario?.nombre || profileName(data, comment.usuario_id)}</strong><p>${comment.comentario}</p><small>${formatDate(comment.created_at)}</small></li>`).join("") : "<li class='empty-state'>Sin comentarios.</li>"}
+        ${comments.length ? comments.map((comment) => `<li class="timeline-item"><strong>${escapeHtml(comment.usuario?.nombre || profileName(data, comment.usuario_id))}</strong><p>${escapeHtml(comment.comentario)}</p><small>${formatDate(comment.created_at)}</small></li>`).join("") : "<li class='empty-state'>Sin comentarios.</li>"}
       </ul>
       <form class="form" data-comment-form>
         <label class="field"><span>Agregar comentario</span><textarea class="form-control" name="comentario" rows="3" required></textarea></label>
@@ -65,7 +66,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     <section>
       <h3>Historial</h3>
       <ul class="timeline">
-        ${history.length ? history.map((item) => `<li class="timeline-item"><strong>${item.accion}</strong><p>${item.descripcion}</p><small>${formatDate(item.created_at)}</small></li>`).join("") : "<li class='empty-state'>Sin auditoria disponible.</li>"}
+        ${history.length ? history.map((item) => `<li class="timeline-item"><strong>${escapeHtml(item.accion)}</strong><p>${escapeHtml(item.descripcion)}</p><small>${formatDate(item.created_at)}</small></li>`).join("") : "<li class='empty-state'>Sin auditoria disponible.</li>"}
       </ul>
     </section>
     ${canApprove(user, solicitud) ? `
@@ -115,8 +116,8 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
 function previewMarkup(file) {
   const source = file.data_url || "";
   if (!source) return "";
-  if (["jpg", "jpeg", "png", "webp"].includes(file.extension)) return `<img class="preview" src="${source}" alt="${file.nombre_original}">`;
-  if (file.extension === "pdf") return `<iframe class="preview" src="${source}" title="${file.nombre_original}"></iframe>`;
+  if (["jpg", "jpeg", "png", "webp"].includes(file.extension)) return `<img class="preview" src="${escapeAttr(source)}" alt="${escapeAttr(file.nombre_original)}">`;
+  if (file.extension === "pdf") return `<iframe class="preview" src="${escapeAttr(source)}" title="${escapeAttr(file.nombre_original)}"></iframe>`;
   return "";
 }
 

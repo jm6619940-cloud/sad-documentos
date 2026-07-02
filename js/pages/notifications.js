@@ -1,6 +1,7 @@
 import { formatDate } from "../utils/format.js";
 import { dataService } from "../services/dataService.js";
 import { toast } from "../components/toast.js";
+import { escapeHtml } from "../utils/security.js";
 
 export function renderNotifications({ user, data, refresh }) {
   const notifications = data.notificaciones.filter((item) => item.usuario_id === user.id);
@@ -13,8 +14,8 @@ export function renderNotifications({ user, data, refresh }) {
     <ul class="notification-list">
       ${notifications.map((item) => `
         <li class="notification-item">
-          <strong>${item.titulo}</strong>
-          <p>${item.mensaje}</p>
+          <strong>${escapeHtml(item.titulo)}</strong>
+          <p>${escapeHtml(item.mensaje)}</p>
           <small>${formatDate(item.created_at)} · ${item.leida ? "Leida" : "Nueva"}</small>
         </li>
       `).join("") || "<li class='empty-state'>No tienes notificaciones.</li>"}

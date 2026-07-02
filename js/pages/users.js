@@ -2,6 +2,7 @@ import { ROLES, ROLE_LABELS } from "../utils/constants.js";
 import { pageTitle } from "../components/layout.js";
 import { dataService } from "../services/dataService.js";
 import { toast } from "../components/toast.js";
+import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderUsers({ data, refresh }) {
   const page = document.createElement("div");
@@ -16,8 +17,8 @@ export function renderUsers({ data, refresh }) {
           <label class="field col-12 col-md-6 col-xl-4"><span>Nombre</span><input class="input form-control" name="nombre" required></label>
           <label class="field col-12 col-md-6 col-xl-4"><span>Apellido</span><input class="input form-control" name="apellido" required></label>
           <label class="field col-12 col-md-6 col-xl-4"><span>Correo</span><input class="input form-control" name="correo" type="email" required></label>
-          <label class="field col-12 col-md-6"><span>Rol</span><select class="form-select" name="rol" required>${Object.values(ROLES).map((role) => `<option value="${role}">${ROLE_LABELS[role]}</option>`).join("")}</select></label>
-          <label class="field col-12 col-md-6"><span>Departamento</span><select class="form-select" name="departamento_id" required>${data.departamentos.map((item) => `<option value="${item.id}">${item.nombre}</option>`).join("")}</select></label>
+          <label class="field col-12 col-md-6"><span>Rol</span><select class="form-select" name="rol" required>${Object.values(ROLES).map((role) => `<option value="${escapeAttr(role)}">${escapeHtml(ROLE_LABELS[role])}</option>`).join("")}</select></label>
+          <label class="field col-12 col-md-6"><span>Departamento</span><select class="form-select" name="departamento_id" required>${data.departamentos.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.nombre)}</option>`).join("")}</select></label>
         </div>
         <div class="toolbar">
           <button class="button btn btn-primary" type="submit">Guardar usuario</button>
@@ -33,14 +34,14 @@ export function renderUsers({ data, refresh }) {
           <tbody>
             ${data.profiles.map((profile) => `
               <tr>
-                <td>${profile.nombre} ${profile.apellido}</td>
-                <td>${profile.correo}</td>
-                <td>${ROLE_LABELS[profile.rol] || profile.rol}</td>
-                <td>${data.departamentos.find((item) => item.id === profile.departamento_id)?.nombre || "-"}</td>
+                <td>${textOrDash(`${profile.nombre || ""} ${profile.apellido || ""}`)}</td>
+                <td>${escapeHtml(profile.correo)}</td>
+                <td>${escapeHtml(ROLE_LABELS[profile.rol] || profile.rol)}</td>
+                <td>${textOrDash(data.departamentos.find((item) => item.id === profile.departamento_id)?.nombre)}</td>
                 <td><span class="badge ${profile.activo ? "activo" : "inactivo"}">${profile.activo ? "Activo" : "Inactivo"}</span></td>
                 <td class="toolbar">
-                  <button class="button secondary btn btn-outline-secondary btn-sm" data-edit="${profile.id}">Editar</button>
-                  <button class="button secondary btn btn-outline-secondary btn-sm" data-toggle="${profile.id}">${profile.activo ? "Desactivar" : "Activar"}</button>
+                  <button class="button secondary btn btn-outline-secondary btn-sm" data-edit="${escapeAttr(profile.id)}">Editar</button>
+                  <button class="button secondary btn btn-outline-secondary btn-sm" data-toggle="${escapeAttr(profile.id)}">${profile.activo ? "Desactivar" : "Activar"}</button>
                 </td>
               </tr>
             `).join("")}

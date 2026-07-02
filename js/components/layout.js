@@ -1,5 +1,6 @@
 import { NAV_ITEMS } from "../utils/constants.js";
 import { initials } from "../utils/format.js";
+import { escapeHtml } from "../utils/security.js";
 import { icon } from "./icons.js";
 
 export function renderLoginShell(onSubmit) {
@@ -58,7 +59,7 @@ export function renderAppShell({ user, route, data, navigate, logout, openNotifi
         </div>
         <div class="topbar-actions">
           <button class="icon-button" data-notifications aria-label="Notificaciones">${icon("bell")}${unread ? `<span class="badge Rechazado">${unread}</span>` : ""}</button>
-          <div class="avatar" title="${user.nombre} ${user.apellido}">${initials(user)}</div>
+          <div class="avatar" title="${escapeHtml(`${user.nombre} ${user.apellido}`)}">${escapeHtml(initials(user))}</div>
           <button class="icon-button" data-logout aria-label="Cerrar sesion">${icon("logout")}</button>
         </div>
       </header>
@@ -82,8 +83,8 @@ export function pageTitle(title, subtitle, action = "") {
   header.className = "page-title";
   header.innerHTML = `
     <div>
-      <h1>${title}</h1>
-      ${subtitle ? `<p>${subtitle}</p>` : ""}
+      <h1>${escapeHtml(title)}</h1>
+      ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}
     </div>
     ${action}
   `;

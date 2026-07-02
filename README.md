@@ -37,6 +37,10 @@ La seguridad real debe depender de:
 
 Los archivos `.env` estan ignorados por Git para evitar subir secretos operativos por accidente.
 
+## Cabeceras y XSS
+
+La aplicacion incluye una politica CSP mediante `<meta http-equiv="Content-Security-Policy">`, referrer policy y escape de salida para reducir riesgo de XSS al mostrar datos de Supabase. GitHub Pages no permite configurar cabeceras HTTP personalizadas del servidor; para cabeceras como `X-Frame-Options`, `X-Content-Type-Options`, `Permissions-Policy` o CSP por header, usa un CDN/proxy como Cloudflare o un hosting que soporte headers.
+
 ## Estructura
 
 - `index.html`: entrada de la SPA.
