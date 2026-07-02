@@ -46,12 +46,12 @@ export function renderDashboard({ user, data, navigate }) {
           <tbody>
             ${data.solicitudes.slice(0, 6).map((item) => `
               <tr>
-                <td>${escapeHtml(item.codigo)}</td>
-                <td>${escapeHtml(item.titulo)}</td>
-                <td><span class="badge ${escapeHtml(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
-                <td>${formatDate(item.updated_at)}</td>
+                <td data-label="Codigo">${escapeHtml(item.codigo)}</td>
+                <td data-label="Titulo">${escapeHtml(item.titulo)}</td>
+                <td data-label="Estado"><span class="badge ${escapeHtml(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
+                <td data-label="Actualizacion">${formatDate(item.updated_at)}</td>
               </tr>
-            `).join("") || `<tr><td colspan="4">No hay solicitudes.</td></tr>`}
+            `).join("") || `<tr><td data-label="" colspan="4">No hay solicitudes.</td></tr>`}
           </tbody>
         </table>
       </div>

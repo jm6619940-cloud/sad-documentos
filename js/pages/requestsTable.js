@@ -49,16 +49,16 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
         <tbody>
           ${rows.map((item) => `
             <tr>
-              <td><strong>${escapeHtml(item.codigo)}</strong></td>
-              ${isPending || isHistory ? `<td>${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</td><td>${textOrDash(item.departamento?.nombre)}</td>` : ""}
-              <td><span class="badge ${escapeAttr(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
-              <td>${textOrDash(item.tipo?.nombre)}</td>
-              <td><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></td>
-              <td>${formatDate(item.created_at)}</td>
-              <td>${formatDate(item.updated_at)}</td>
-              <td><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></td>
+              <td data-label="Codigo"><strong>${escapeHtml(item.codigo)}</strong></td>
+              ${isPending || isHistory ? `<td data-label="Solicitante">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</td><td data-label="Departamento">${textOrDash(item.departamento?.nombre)}</td>` : ""}
+              <td data-label="Estado"><span class="badge ${escapeAttr(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
+              <td data-label="Tipo">${textOrDash(item.tipo?.nombre)}</td>
+              <td data-label="Prioridad"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></td>
+              <td data-label="Fecha">${formatDate(item.created_at)}</td>
+              <td data-label="Actualizacion">${formatDate(item.updated_at)}</td>
+              <td data-label=""><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></td>
             </tr>
-          `).join("") || `<tr><td colspan="9">No hay resultados.</td></tr>`}
+          `).join("") || `<tr><td data-label="" colspan="9">No hay resultados.</td></tr>`}
         </tbody>
       </table>
     `;

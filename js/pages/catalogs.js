@@ -34,10 +34,10 @@ function catalogPanel(table, title, rows, refresh) {
         <tbody>
           ${rows.map((item) => `
             <tr>
-              <td>${escapeHtml(item.nombre)}</td>
-              <td>${textOrDash(item.descripcion)}</td>
-              <td>${new Date(item.created_at).toLocaleDateString("es-DO")}</td>
-              <td><button class="button secondary btn btn-outline-secondary btn-sm" data-edit="${escapeAttr(item.id)}">Editar</button></td>
+              <td data-label="Nombre">${escapeHtml(item.nombre)}</td>
+              <td data-label="Descripcion">${textOrDash(item.descripcion)}</td>
+              <td data-label="Creado">${new Date(item.created_at).toLocaleDateString("es-DO")}</td>
+              <td data-label=""><button class="button secondary btn btn-outline-secondary btn-sm" data-edit="${escapeAttr(item.id)}">Editar</button></td>
             </tr>
           `).join("")}
         </tbody>

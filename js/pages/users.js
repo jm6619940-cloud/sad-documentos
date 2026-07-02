@@ -34,12 +34,12 @@ export function renderUsers({ data, refresh }) {
           <tbody>
             ${data.profiles.map((profile) => `
               <tr>
-                <td>${textOrDash(`${profile.nombre || ""} ${profile.apellido || ""}`)}</td>
-                <td>${escapeHtml(profile.correo)}</td>
-                <td>${escapeHtml(ROLE_LABELS[profile.rol] || profile.rol)}</td>
-                <td>${textOrDash(data.departamentos.find((item) => item.id === profile.departamento_id)?.nombre)}</td>
-                <td><span class="badge ${profile.activo ? "activo" : "inactivo"}">${profile.activo ? "Activo" : "Inactivo"}</span></td>
-                <td class="toolbar">
+                <td data-label="Nombre">${textOrDash(`${profile.nombre || ""} ${profile.apellido || ""}`)}</td>
+                <td data-label="Correo">${escapeHtml(profile.correo)}</td>
+                <td data-label="Rol">${escapeHtml(ROLE_LABELS[profile.rol] || profile.rol)}</td>
+                <td data-label="Departamento">${textOrDash(data.departamentos.find((item) => item.id === profile.departamento_id)?.nombre)}</td>
+                <td data-label="Estado"><span class="badge ${profile.activo ? "activo" : "inactivo"}">${profile.activo ? "Activo" : "Inactivo"}</span></td>
+                <td class="toolbar" data-label="">
                   <button class="button secondary btn btn-outline-secondary btn-sm" data-edit="${escapeAttr(profile.id)}">Editar</button>
                   <button class="button secondary btn btn-outline-secondary btn-sm" data-toggle="${escapeAttr(profile.id)}">${profile.activo ? "Desactivar" : "Activar"}</button>
                 </td>
