@@ -22,11 +22,10 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
 
   const files = data.archivos.filter((file) => file.solicitud_id === solicitud.id);
   const comments = data.comentarios.filter((comment) => comment.solicitud_id === solicitud.id);
-  const history = data.auditoria.filter((item) => item.solicitud_id === solicitud.id);
   const view = document.createElement("div");
-  view.className = "grid";
+  view.className = "grid request-detail";
   view.innerHTML = `
-    <div class="detail-grid">
+    <div class="detail-grid detail-grid-compact">
       <div class="detail-box"><strong>Codigo</strong><p>${escapeHtml(solicitud.codigo)}</p></div>
       <div class="detail-box"><strong>Estado</strong><p><span class="badge ${escapeAttr(solicitud.estado.split(" ")[0])}">${escapeHtml(solicitud.estado)}</span></p></div>
       <div class="detail-box"><strong>Tipo</strong><p>${textOrDash(solicitud.tipo?.nombre)}</p></div>
@@ -41,12 +40,14 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
       ${solicitud.comentario_aprobacion ? `<p><strong>Comentario de decision:</strong> ${escapeHtml(solicitud.comentario_aprobacion)}</p>` : ""}
     </section>
     <section>
-      <div class="panel-header"><h3>Archivos</h3></div>
+      <div class="panel-header compact-section-header"><h3>Archivos</h3></div>
       <ul class="file-list">
         ${files.length ? files.map((file) => `
-          <li class="file-item">
-            <strong>${escapeHtml(file.nombre_original)}</strong>
-            <p>${escapeHtml(file.extension?.toUpperCase())} · ${formatBytes(file.tamano)}</p>
+          <li class="file-item file-item-compact">
+            <div>
+              <strong>${escapeHtml(file.nombre_original)}</strong>
+              <p>${escapeHtml(file.extension?.toUpperCase())} · ${formatBytes(file.tamano)}</p>
+            </div>
             ${previewMarkup(file)}
             <button class="button secondary btn btn-outline-secondary btn-sm" data-download="${escapeAttr(file.id)}">${icon("download")} Descargar</button>
           </li>
@@ -59,21 +60,15 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
         ${comments.length ? comments.map((comment) => `<li class="timeline-item"><strong>${escapeHtml(comment.usuario?.nombre || profileName(data, comment.usuario_id))}</strong><p>${escapeHtml(comment.comentario)}</p><small>${formatDate(comment.created_at)}</small></li>`).join("") : "<li class='empty-state'>Sin comentarios.</li>"}
       </ul>
       <form class="form" data-comment-form>
-        <label class="field"><span>Agregar comentario</span><textarea class="form-control" name="comentario" rows="3" required></textarea></label>
+        <label class="field"><span>Agregar comentario</span><textarea class="form-control" name="comentario" rows="2" required></textarea></label>
         <button class="button secondary btn btn-outline-secondary" type="submit">Agregar comentario</button>
       </form>
-    </section>
-    <section>
-      <h3>Historial</h3>
-      <ul class="timeline">
-        ${history.length ? history.map((item) => `<li class="timeline-item"><strong>${escapeHtml(item.accion)}</strong><p>${escapeHtml(item.descripcion)}</p><small>${formatDate(item.created_at)}</small></li>`).join("") : "<li class='empty-state'>Sin auditoria disponible.</li>"}
-      </ul>
     </section>
     ${canApprove(user, solicitud) ? `
       <section class="panel">
         <h3>Decision</h3>
         <form class="form" data-action-form>
-          <label class="field"><span>Comentario</span><textarea class="form-control" name="comentario" rows="3"></textarea></label>
+          <label class="field"><span>Comentario</span><textarea class="form-control" name="comentario" rows="2"></textarea></label>
           <div class="toolbar">
             <button class="button success btn btn-success" name="action" value="aprobar">${icon("check")} Aprobar</button>
             <button class="button danger btn btn-danger" name="action" value="rechazar">${icon("x")} Rechazar</button>

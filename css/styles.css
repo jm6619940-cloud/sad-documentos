@@ -13,8 +13,9 @@
   --info: #176b87;
   --shadow: 0 12px 28px rgba(25, 36, 55, 0.08);
   --radius: 8px;
-  --sidebar: 280px;
+  --sidebar: 236px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
 }
 
 * {
@@ -79,15 +80,15 @@ button {
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font-weight: 800;
   letter-spacing: 0;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .brand-mark {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   border-radius: 8px;
@@ -112,24 +113,25 @@ h3 {
 }
 
 h1 {
-  font-size: clamp(2rem, 5vw, 4.5rem);
+  font-size: clamp(1.85rem, 4vw, 3.8rem);
   line-height: 0.98;
 }
 
 .login-panel h1,
 .page-title h1 {
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-size: clamp(1.45rem, 2.5vw, 1.9rem);
   line-height: 1.08;
 }
 
 p {
   color: var(--muted);
-  line-height: 1.6;
+  line-height: 1.45;
+  margin-bottom: 0.75rem;
 }
 
 .form {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .field {
@@ -150,8 +152,8 @@ textarea {
   background: white;
   color: var(--text);
   border-radius: var(--radius);
-  padding: 11px 12px;
-  min-height: 44px;
+  padding: 8px 10px;
+  min-height: 38px;
   outline: none;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
@@ -169,9 +171,9 @@ textarea:focus {
 
 .button {
   border: 0;
-  min-height: 42px;
+  min-height: 34px;
   border-radius: var(--radius);
-  padding: 10px 14px;
+  padding: 6px 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -219,8 +221,8 @@ textarea:focus {
 }
 
 .icon-button {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -244,7 +246,7 @@ textarea:focus {
 .sidebar {
   background: var(--surface);
   border-right: 1px solid var(--line);
-  padding: 22px 16px;
+  padding: 18px 14px;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -252,14 +254,14 @@ textarea:focus {
 
 .nav {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .nav-button {
   width: 100%;
   border: 0;
   border-radius: var(--radius);
-  padding: 11px 12px;
+  padding: 9px 10px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -280,7 +282,7 @@ textarea:focus {
 }
 
 .topbar {
-  height: 72px;
+  height: 54px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -300,8 +302,8 @@ textarea:focus {
 }
 
 .avatar {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -311,26 +313,26 @@ textarea:focus {
 }
 
 .content {
-  padding: 28px clamp(18px, 4vw, 36px) 44px;
+  padding: 18px clamp(14px, 2.5vw, 24px) 32px;
   display: grid;
-  gap: 22px;
+  gap: 16px;
   min-width: 0;
 }
 
 .page-title {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
   align-items: flex-start;
 }
 
 .grid {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .grid.cards {
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .card {
@@ -341,8 +343,8 @@ textarea:focus {
 }
 
 .metric {
-  padding: 18px;
-  min-height: 124px;
+  padding: 14px;
+  min-height: 96px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -354,14 +356,14 @@ textarea:focus {
 }
 
 .metric strong {
-  font-size: 2.15rem;
+  font-size: 1.7rem;
 }
 
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 12px;
   box-shadow: var(--shadow);
   min-width: 0;
 }
@@ -369,24 +371,35 @@ textarea:focus {
 .panel-header {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
+}
+
+.panel-header h2,
+.panel-header h3,
+.request-detail h3 {
+  font-size: 1.15rem;
 }
 
 .toolbar {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
 }
 
 .toolbar > * {
-  max-width: 220px;
+  max-width: 190px;
 }
 
 .toolbar .button {
   white-space: nowrap;
+}
+
+td .button {
+  white-space: nowrap;
+  min-width: max-content;
 }
 
 .table-wrap {
@@ -398,12 +411,12 @@ textarea:focus {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 640px;
 }
 
 th,
 td {
-  padding: 13px 12px;
+  padding: 7px 9px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: middle;
@@ -412,7 +425,7 @@ td {
 
 th {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -425,9 +438,9 @@ tr:hover td {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 9px;
+  padding: 3px 8px;
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -462,14 +475,14 @@ tr:hover td {
   border: 1px dashed var(--line);
   background: #fbfcfe;
   border-radius: var(--radius);
-  padding: 28px;
+  padding: 20px;
   text-align: center;
 }
 
 .file-drop {
   border: 1px dashed #a8b6ca;
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 14px;
   background: #fbfcfe;
 }
 
@@ -477,7 +490,7 @@ tr:hover td {
 .timeline,
 .notification-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   padding: 0;
   margin: 0;
   list-style: none;
@@ -488,28 +501,76 @@ tr:hover td {
 .notification-item {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 12px;
+  padding: 10px;
   background: white;
   overflow-wrap: anywhere;
 }
 
 .detail-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
 }
 
 .detail-box {
-  padding: 12px;
+  padding: 9px 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fbfcfe;
   overflow-wrap: anywhere;
 }
 
+.detail-box strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.82rem;
+}
+
+.detail-box p {
+  margin: 0;
+}
+
+.request-detail {
+  gap: 10px;
+}
+
+.request-detail section {
+  display: grid;
+  gap: 8px;
+}
+
+.request-detail section > h3 {
+  margin-top: 2px;
+}
+
+.detail-grid-compact {
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+}
+
+.compact-section-header {
+  margin-bottom: 0;
+}
+
+.file-item-compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-item-compact .preview {
+  grid-column: 1 / -1;
+}
+
+.file-item-compact p,
+.timeline-item p,
+.notification-item p {
+  margin-bottom: 0;
+}
+
 .preview {
   width: 100%;
-  max-height: 420px;
+  max-height: 280px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #f8fafc;
@@ -526,8 +587,8 @@ tr:hover td {
 }
 
 .modal {
-  width: min(980px, 100%);
-  max-height: min(88vh, 920px);
+  width: min(860px, 96vw);
+  max-height: min(86vh, 760px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -537,15 +598,19 @@ tr:hover td {
 }
 
 .modal-header {
-  padding: 16px 18px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
+.modal-header h2 {
+  font-size: 1.35rem;
+}
+
 .modal-body {
-  padding: 18px;
+  padding: 12px;
   overflow: auto;
 }
 
@@ -592,7 +657,7 @@ tr:hover td {
 
 @media (max-width: 1180px) {
   :root {
-    --sidebar: 244px;
+    --sidebar: 220px;
   }
 
   .login-view {
@@ -707,7 +772,7 @@ tr:hover td {
   }
 
   .metric strong {
-    font-size: 1.8rem;
+    font-size: 1.5rem;
   }
 
   .detail-grid {
@@ -779,6 +844,27 @@ tr:hover td {
 
   td.toolbar .button {
     flex: 1 1 auto;
+  }
+
+  table td[data-label=""] .button {
+    width: 100%;
+  }
+
+  .modal {
+    width: calc(100vw - 16px);
+    max-height: 88vh;
+  }
+
+  .modal-header h2 {
+    font-size: 1.15rem;
+  }
+
+  .detail-grid-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .file-item-compact {
+    grid-template-columns: 1fr;
   }
 }
 
