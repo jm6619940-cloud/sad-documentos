@@ -8,6 +8,7 @@ export function toast(message, type = "info") {
       position: "top-end",
       icon,
       title: message,
+      backdrop: false,
       showConfirmButton: false,
       timer: icon === "error" ? 4200 : 2600,
       timerProgressBar: true,
@@ -40,6 +41,7 @@ export function alertMessage(title, messages, type = "warning") {
       icon: type,
       title,
       html: `<ul class="swal-list">${list.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`,
+      backdrop: "rgba(15, 23, 42, 0.18)",
       confirmButtonText: "Entendido",
       buttonsStyling: false,
       customClass: {

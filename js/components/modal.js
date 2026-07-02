@@ -2,6 +2,7 @@ import { escapeHtml } from "../utils/security.js";
 
 export function openModal(content, options = {}) {
   const root = document.querySelector("#modal-root");
+  closeModal();
   root.innerHTML = `
     <div class="app-modal-backdrop" role="presentation">
       <section class="app-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -13,7 +14,12 @@ export function openModal(content, options = {}) {
       </section>
     </div>
   `;
-  root.querySelector(".app-modal-body").append(content);
+  const body = root.querySelector(".app-modal-body");
+  if (!body) {
+    closeModal();
+    return;
+  }
+  body.append(content);
   root.querySelector("[data-close-modal]").addEventListener("click", closeModal);
   root.querySelector(".app-modal-backdrop").addEventListener("click", (event) => {
     if (event.target.classList.contains("app-modal-backdrop")) closeModal();
