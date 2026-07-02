@@ -582,13 +582,16 @@ tr:hover td {
   z-index: 20;
   background: rgba(15, 23, 42, 0.42);
   display: grid;
+  align-items: center;
+  justify-items: center;
   place-items: center;
   padding: 20px;
+  overflow: hidden;
 }
 
 .modal {
   width: min(860px, 96vw);
-  max-height: min(86vh, 760px);
+  max-height: min(82vh, 720px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -612,6 +615,69 @@ tr:hover td {
 .modal-body {
   padding: 12px;
   overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.swal2-container {
+  z-index: 70;
+}
+
+.swal2-popup.swal-compact,
+.swal2-popup {
+  border-radius: var(--radius);
+  font-size: 0.92rem;
+}
+
+.swal2-title {
+  font-size: 1.25rem;
+}
+
+.swal2-html-container {
+  margin-top: 0.5rem;
+}
+
+.swal-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  text-align: left;
+}
+
+.swal-list li + li {
+  margin-top: 0.25rem;
+}
+
+.swal2-toast {
+  box-shadow: var(--shadow);
+}
+
+.swal2-animate-toast-in {
+  animation: toastSlideIn 180ms ease-out;
+}
+
+.swal2-animate-toast-out {
+  animation: toastSlideOut 150ms ease-in forwards;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translate3d(12px, -6px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes toastSlideOut {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(12px, -6px, 0) scale(0.98);
+  }
 }
 
 .toast-root {
@@ -852,7 +918,7 @@ tr:hover td {
 
   .modal {
     width: calc(100vw - 16px);
-    max-height: 88vh;
+    max-height: 86vh;
   }
 
   .modal-header h2 {

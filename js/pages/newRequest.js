@@ -2,7 +2,7 @@ import { PRIORITIES } from "../utils/constants.js";
 import { requireFields, validateFiles } from "../utils/validators.js";
 import { pageTitle } from "../components/layout.js";
 import { dataService } from "../services/dataService.js";
-import { toast } from "../components/toast.js";
+import { alertMessage, toast } from "../components/toast.js";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";
 
@@ -39,7 +39,7 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
     const list = page.querySelector("[data-selected-files]");
     const validation = validateFiles(fileInput.files);
     list.innerHTML = Array.from(fileInput.files).map((file) => `<li class="file-item">${escapeHtml(file.name)}</li>`).join("");
-    if (!validation.valid) validation.errors.forEach((error) => toast(error, "error"));
+    if (!validation.valid) alertMessage("Revisa los archivos", validation.errors, "warning");
   });
   page.querySelector("[data-cancel]").addEventListener("click", () => navigate("my-requests"));
   form.addEventListener("submit", async (event) => {
@@ -49,7 +49,7 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
     const fileValidation = validateFiles(fileInput.files);
     const errors = [...fieldErrors, ...fileValidation.errors];
     if (errors.length) {
-      errors.forEach((error) => toast(error, "error"));
+      alertMessage("Falta completar informacion", errors, "warning");
       return;
     }
     try {
