@@ -2,30 +2,47 @@ import { escapeHtml } from "../utils/security.js";
 
 export function openModal(content, options = {}) {
   const root = document.querySelector("#modal-root");
+  if (!root) return;
   closeModal();
   root.innerHTML = `
-    <div class="app-modal-backdrop" role="presentation">
-      <section class="app-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <header class="app-modal-header">
-          <h2 id="modal-title">${escapeHtml(options.title || "Detalle")}</h2>
-          <button class="icon-button" data-close-modal aria-label="Cerrar">x</button>
-        </header>
-        <div class="app-modal-body"></div>
-      </section>
-    </div>
+    <section class="app-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <header class="app-modal-header">
+        <h2 id="modal-title">${escapeHtml(options.title || "Detalle")}</h2>
+        <button class="icon-button" data-close-modal aria-label="Cerrar">x</button>
+      </header>
+      <div class="app-modal-body"></div>
+    </section>
   `;
   const body = root.querySelector(".app-modal-body");
   if (!body) {
     closeModal();
     return;
   }
-  body.append(content);
+  try {
+    body.append(content);
+  } catch (error) {
+    closeModal();
+    throw error;
+  }
+  root.classList.add("is-open");
+  document.body.classList.add("app-modal-open");
   root.querySelector("[data-close-modal]").addEventListener("click", closeModal);
-  root.querySelector(".app-modal-backdrop").addEventListener("click", (event) => {
-    if (event.target.classList.contains("app-modal-backdrop")) closeModal();
-  });
+  root.onclick = (event) => {
+    if (event.target === root) closeModal();
+  };
+  window.addEventListener("keydown", handleModalKeydown);
 }
 
 export function closeModal() {
-  document.querySelector("#modal-root").innerHTML = "";
+  const root = document.querySelector("#modal-root");
+  if (!root) return;
+  root.classList.remove("is-open");
+  root.innerHTML = "";
+  root.onclick = null;
+  document.body.classList.remove("app-modal-open");
+  window.removeEventListener("keydown", handleModalKeydown);
+}
+
+function handleModalKeydown(event) {
+  if (event.key === "Escape") closeModal();
 }
