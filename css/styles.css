@@ -252,6 +252,18 @@ textarea:focus {
   height: 100vh;
 }
 
+.sidebar-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sidebar-close,
+.sidebar-backdrop {
+  display: none;
+}
+
 .nav {
   display: grid;
   gap: 4px;
@@ -835,15 +847,37 @@ tr:hover td {
 
   .sidebar {
     position: fixed;
-    z-index: 12;
+    z-index: 13;
     inset: 0 auto 0 0;
     width: min(84vw, var(--sidebar));
     transform: translateX(-102%);
     transition: transform 180ms ease;
   }
 
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 11;
+    border: 0;
+    background: rgba(17, 24, 39, 0.28);
+    display: block;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+  }
+
+  .layout.menu-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .sidebar.open {
     transform: translateX(0);
+  }
+
+  .sidebar-close {
+    display: inline-grid;
+    flex: 0 0 auto;
   }
 
   .mobile-toggle {

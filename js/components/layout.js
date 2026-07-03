@@ -41,8 +41,12 @@ export function renderAppShell({ user, route, data, navigate, logout, openNotifi
   const shell = document.createElement("div");
   shell.className = "layout container-fluid p-0";
   shell.innerHTML = `
+    <button class="sidebar-backdrop" type="button" data-menu-backdrop aria-label="Cerrar menu"></button>
     <aside class="sidebar" data-sidebar>
-      <div class="brand"><span class="brand-mark">SAD</span><span>Autorizacion</span></div>
+      <div class="sidebar-header">
+        <div class="brand"><span class="brand-mark">SAD</span><span>Autorizacion</span></div>
+        <button class="icon-button sidebar-close" type="button" data-menu-close aria-label="Cerrar menu">${icon("x")}</button>
+      </div>
       <nav class="nav" aria-label="Navegacion principal">
         ${NAV_ITEMS.filter((item) => item.roles.includes(user.rol)).map((item) => `
           <button class="nav-button ${route === item.id ? "active" : ""}" data-route="${item.id}">
@@ -66,15 +70,29 @@ export function renderAppShell({ user, route, data, navigate, logout, openNotifi
       <section class="content" data-page></section>
     </main>
   `;
+  const sidebar = shell.querySelector("[data-sidebar]");
+  const closeMenu = () => {
+    sidebar.classList.remove("open");
+    shell.classList.remove("menu-open");
+  };
+  const toggleMenu = () => {
+    const isOpen = sidebar.classList.toggle("open");
+    shell.classList.toggle("menu-open", isOpen);
+  };
   shell.querySelectorAll("[data-route]").forEach((button) => {
     button.addEventListener("click", () => {
       navigate(button.dataset.route);
-      shell.querySelector("[data-sidebar]").classList.remove("open");
+      closeMenu();
     });
   });
   shell.querySelector("[data-logout]").addEventListener("click", logout);
   shell.querySelector("[data-notifications]").addEventListener("click", openNotifications);
-  shell.querySelector("[data-menu]").addEventListener("click", () => shell.querySelector("[data-sidebar]").classList.toggle("open"));
+  shell.querySelector("[data-menu]").addEventListener("click", toggleMenu);
+  shell.querySelector("[data-menu-close]").addEventListener("click", closeMenu);
+  shell.querySelector("[data-menu-backdrop]").addEventListener("click", closeMenu);
+  shell.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeMenu();
+  });
   return shell;
 }
 
