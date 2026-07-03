@@ -51,8 +51,11 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
               <strong>${escapeHtml(file.nombre_original)}</strong>
               <p>${escapeHtml(file.extension?.toUpperCase())} · ${formatBytes(file.tamano)}</p>
             </div>
-            ${previewMarkup(file)}
-            <button class="button secondary btn btn-outline-secondary btn-sm" data-download="${escapeAttr(file.id)}">${icon("download")} Descargar</button>
+            <div class="file-actions">
+              <button class="button secondary btn btn-outline-secondary btn-sm" type="button" data-preview="${escapeAttr(file.id)}">${icon("eye")} Vista previa</button>
+              <button class="button secondary btn btn-outline-secondary btn-sm" type="button" data-download="${escapeAttr(file.id)}">${icon("download")} Descargar</button>
+            </div>
+            <div class="file-preview-panel" data-preview-panel="${escapeAttr(file.id)}" hidden></div>
           </li>
         `).join("") : "<li class='empty-state'>No hay archivos adjuntos.</li>"}
       </ul>
@@ -108,6 +111,38 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     });
   });
 
+  view.querySelectorAll("[data-preview]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const file = files.find((item) => item.id === button.dataset.preview);
+      const panel = [...view.querySelectorAll("[data-preview-panel]")]
+        .find((item) => item.dataset.previewPanel === button.dataset.preview);
+      if (!file || !panel) return;
+
+      if (!panel.hidden) {
+        panel.hidden = true;
+        panel.innerHTML = "";
+        button.innerHTML = `${icon("eye")} Vista previa`;
+        return;
+      }
+
+      button.disabled = true;
+      const previousLabel = button.innerHTML;
+      button.textContent = "Cargando...";
+      try {
+        const url = file.data_url || await dataService.signedUrl(file.ruta_storage);
+        panel.innerHTML = previewMarkup(file, url);
+        panel.hidden = false;
+        button.innerHTML = `${icon("x")} Ocultar`;
+        await dataService.audit(user.id, solicitud.id, "VISTA_PREVIA_ARCHIVO", `Vista previa de ${file.nombre_original}.`);
+      } catch (error) {
+        toast(error.message || "No fue posible abrir la vista previa.", "error");
+        button.innerHTML = previousLabel;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
+
   view.querySelector("[data-comment-form]").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -128,12 +163,28 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
   return view;
 }
 
-function previewMarkup(file) {
-  const source = file.data_url || "";
-  if (!source) return "";
-  if (["jpg", "jpeg", "png", "webp"].includes(file.extension)) return `<img class="preview" src="${escapeAttr(source)}" alt="${escapeAttr(file.nombre_original)}">`;
-  if (file.extension === "pdf") return `<iframe class="preview" src="${escapeAttr(source)}" title="${escapeAttr(file.nombre_original)}"></iframe>`;
-  return "";
+function previewMarkup(file, source = "") {
+  if (!source) return previewUnavailable(file);
+  if (isImage(file)) return `<img class="preview preview-image" src="${escapeAttr(source)}" alt="${escapeAttr(file.nombre_original)}">`;
+  if (isFramePreview(file)) return `<iframe class="preview document-preview" src="${escapeAttr(source)}" title="${escapeAttr(file.nombre_original)}"></iframe>`;
+  return previewUnavailable(file);
+}
+
+function previewUnavailable(file) {
+  return `
+    <div class="preview-unavailable">
+      <strong>Vista previa no disponible para ${escapeHtml(file.extension?.toUpperCase() || "este formato")}.</strong>
+      <p>Este tipo de archivo no se puede mostrar directamente en el navegador. Puedes descargarlo para revisarlo.</p>
+    </div>
+  `;
+}
+
+function isImage(file) {
+  return ["jpg", "jpeg", "png", "webp"].includes(file.extension);
+}
+
+function isFramePreview(file) {
+  return ["pdf", "txt", "csv"].includes(file.extension) || file.mime_type?.startsWith("text/");
 }
 
 function profileName(data, id) {

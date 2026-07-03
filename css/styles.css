@@ -558,8 +558,21 @@ tr:hover td {
   gap: 10px;
 }
 
+.file-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.file-preview-panel,
 .file-item-compact .preview {
   grid-column: 1 / -1;
+}
+
+.file-preview-panel {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
 }
 
 .file-item-compact p,
@@ -592,6 +605,28 @@ tr:hover td {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #f8fafc;
+}
+
+.preview-image {
+  height: auto;
+  object-fit: contain;
+}
+
+.document-preview {
+  height: min(58vh, 560px);
+  max-height: none;
+}
+
+.preview-unavailable {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: #fbfcfe;
+  padding: 12px;
+}
+
+.preview-unavailable p {
+  margin: 4px 0 0;
+  color: var(--muted);
 }
 
 #modal-root {
@@ -980,6 +1015,10 @@ tr:hover td {
 
   .file-item-compact {
     grid-template-columns: 1fr;
+  }
+
+  .file-actions {
+    justify-content: flex-start;
   }
 }
 
