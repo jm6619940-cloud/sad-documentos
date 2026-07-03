@@ -34,6 +34,32 @@ function navigate(route) {
   render();
 }
 
+async function openNotificationsModal() {
+  const hasUnread = state.data?.notificaciones.some((item) => item.usuario_id === state.user.id && !item.leida);
+
+  if (hasUnread) {
+    state.data = {
+      ...state.data,
+      notificaciones: state.data.notificaciones.map((item) => (
+        item.usuario_id === state.user.id ? { ...item, leida: true } : item
+      ))
+    };
+    render();
+  }
+
+  openModal(renderNotifications({ user: state.user, data: state.data, refresh }), { title: "Notificaciones" });
+
+  if (!hasUnread) return;
+  try {
+    await dataService.markNotificationsRead(state.user.id);
+    state.data = await dataService.listData();
+    render();
+  } catch (error) {
+    toast(error.message || "No fue posible marcar las notificaciones como leidas.", "error");
+    await refresh();
+  }
+}
+
 async function login(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
@@ -71,7 +97,7 @@ function render() {
     data: state.data,
     navigate,
     logout,
-    openNotifications: () => openModal(renderNotifications({ user: state.user, data: state.data, refresh }), { title: "Notificaciones" })
+    openNotifications: openNotificationsModal
   });
   root.append(shell);
   const outlet = shell.querySelector("[data-page]");

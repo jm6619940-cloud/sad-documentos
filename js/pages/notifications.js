@@ -5,12 +5,13 @@ import { escapeHtml } from "../utils/security.js";
 
 export function renderNotifications({ user, data, refresh }) {
   const notifications = data.notificaciones.filter((item) => item.usuario_id === user.id);
+  const hasUnread = notifications.some((item) => !item.leida);
   const view = document.createElement("div");
   view.className = "grid";
   view.innerHTML = `
-    <div class="toolbar">
+    ${hasUnread ? `<div class="toolbar">
       <button class="button secondary btn btn-outline-secondary" data-read>Marcar como leidas</button>
-    </div>
+    </div>` : ""}
     <ul class="notification-list">
       ${notifications.map((item) => `
         <li class="notification-item">
@@ -21,7 +22,7 @@ export function renderNotifications({ user, data, refresh }) {
       `).join("") || "<li class='empty-state'>No tienes notificaciones.</li>"}
     </ul>
   `;
-  view.querySelector("[data-read]").addEventListener("click", async () => {
+  view.querySelector("[data-read]")?.addEventListener("click", async () => {
     await dataService.markNotificationsRead(user.id);
     toast("Notificaciones marcadas como leidas.", "success");
     await refresh();
