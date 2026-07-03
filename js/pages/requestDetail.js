@@ -55,7 +55,6 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
               <button class="button secondary btn btn-outline-secondary btn-sm" type="button" data-preview="${escapeAttr(file.id)}">${icon("eye")} Vista previa</button>
               <button class="button secondary btn btn-outline-secondary btn-sm" type="button" data-download="${escapeAttr(file.id)}">${icon("download")} Descargar</button>
             </div>
-            <div class="file-preview-panel" data-preview-panel="${escapeAttr(file.id)}" hidden></div>
           </li>
         `).join("") : "<li class='empty-state'>No hay archivos adjuntos.</li>"}
       </ul>
@@ -114,30 +113,22 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
   view.querySelectorAll("[data-preview]").forEach((button) => {
     button.addEventListener("click", async () => {
       const file = files.find((item) => item.id === button.dataset.preview);
-      const panel = [...view.querySelectorAll("[data-preview-panel]")]
-        .find((item) => item.dataset.previewPanel === button.dataset.preview);
-      if (!file || !panel) return;
-
-      if (!panel.hidden) {
-        panel.hidden = true;
-        panel.innerHTML = "";
-        button.innerHTML = `${icon("eye")} Vista previa`;
-        return;
-      }
+      if (!file) return;
 
       button.disabled = true;
       const previousLabel = button.innerHTML;
       button.textContent = "Cargando...";
       try {
         const url = file.data_url || await dataService.signedUrl(file.ruta_storage);
-        panel.innerHTML = previewMarkup(file, url);
-        panel.hidden = false;
-        button.innerHTML = `${icon("x")} Ocultar`;
+        openFilePreview(file, url, async () => {
+          window.open(url, "_blank", "noopener");
+          await dataService.audit(user.id, solicitud.id, "DESCARGA_ARCHIVO", `Descarga de ${file.nombre_original}.`);
+        });
         await dataService.audit(user.id, solicitud.id, "VISTA_PREVIA_ARCHIVO", `Vista previa de ${file.nombre_original}.`);
       } catch (error) {
         toast(error.message || "No fue posible abrir la vista previa.", "error");
-        button.innerHTML = previousLabel;
       } finally {
+        button.innerHTML = previousLabel;
         button.disabled = false;
       }
     });
@@ -165,8 +156,8 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
 
 function previewMarkup(file, source = "") {
   if (!source) return previewUnavailable(file);
-  if (isImage(file)) return `<img class="preview preview-image" src="${escapeAttr(source)}" alt="${escapeAttr(file.nombre_original)}">`;
-  if (isFramePreview(file)) return `<iframe class="preview document-preview" src="${escapeAttr(source)}" title="${escapeAttr(file.nombre_original)}"></iframe>`;
+  if (isImage(file)) return `<img class="quicklook-media quicklook-image" src="${escapeAttr(source)}" alt="${escapeAttr(file.nombre_original)}">`;
+  if (isFramePreview(file)) return `<iframe class="quicklook-media quicklook-frame" src="${escapeAttr(source)}" title="${escapeAttr(file.nombre_original)}"></iframe>`;
   return previewUnavailable(file);
 }
 
@@ -185,6 +176,54 @@ function isImage(file) {
 
 function isFramePreview(file) {
   return ["pdf", "txt", "csv"].includes(file.extension) || file.mime_type?.startsWith("text/");
+}
+
+function openFilePreview(file, source, onDownload) {
+  closeFilePreview();
+  const root = document.createElement("div");
+  root.id = "file-preview-root";
+  root.innerHTML = `
+    <div class="quicklook-backdrop" data-file-preview-close></div>
+    <section class="quicklook" role="dialog" aria-modal="true" aria-labelledby="quicklook-title">
+      <header class="quicklook-header">
+        <div>
+          <h2 id="quicklook-title">${escapeHtml(file.nombre_original)}</h2>
+          <p>${escapeHtml(file.extension?.toUpperCase() || "Archivo")} · ${formatBytes(file.tamano)}</p>
+        </div>
+        <div class="quicklook-actions">
+          <button class="button secondary btn btn-outline-secondary btn-sm" type="button" data-file-preview-download>${icon("download")} Descargar</button>
+          <button class="icon-button" type="button" data-file-preview-close aria-label="Cerrar">${icon("x")}</button>
+        </div>
+      </header>
+      <div class="quicklook-body">
+        ${previewMarkup(file, source)}
+      </div>
+    </section>
+  `;
+
+  const handleKeydown = (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    closeFilePreview();
+  };
+
+  root.querySelectorAll("[data-file-preview-close]").forEach((item) => {
+    item.addEventListener("click", closeFilePreview);
+  });
+  root.querySelector("[data-file-preview-download]").addEventListener("click", onDownload);
+  root.handleFilePreviewKeydown = handleKeydown;
+  window.addEventListener("keydown", handleKeydown, true);
+  document.body.classList.add("file-preview-open");
+  document.body.append(root);
+}
+
+function closeFilePreview() {
+  const root = document.querySelector("#file-preview-root");
+  if (!root) return;
+  window.removeEventListener("keydown", root.handleFilePreviewKeydown, true);
+  root.remove();
+  document.body.classList.remove("file-preview-open");
 }
 
 function profileName(data, id) {
