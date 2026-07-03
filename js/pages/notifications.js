@@ -1,6 +1,6 @@
 import { formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js";
-import { toast } from "../components/toast.js";
+import { dataService } from "../services/dataService.js?v=20260703-10";
+import { toast } from "../components/toast.js?v=20260703-10";
 import { escapeHtml } from "../utils/security.js";
 
 export function renderNotifications({ user, data, refresh }) {

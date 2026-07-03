@@ -1,8 +1,8 @@
 import { PRIORITIES } from "../utils/constants.js";
-import { validateFiles } from "../utils/validators.js";
+import { validateFiles } from "../utils/validators.js?v=20260703-10";
 import { pageTitle } from "../components/layout.js";
-import { dataService } from "../services/dataService.js";
-import * as toastApi from "../components/toast.js";
+import { dataService } from "../services/dataService.js?v=20260703-10";
+import * as toastApi from "../components/toast.js?v=20260703-10";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";
 

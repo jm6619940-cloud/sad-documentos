@@ -8,7 +8,6 @@ export function toast(message, type = "info") {
       position: "top-end",
       icon,
       title: message,
-      backdrop: false,
       showConfirmButton: false,
       timer: icon === "error" ? 4200 : 2600,
       timerProgressBar: true,
