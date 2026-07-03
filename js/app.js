@@ -1,14 +1,14 @@
-import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260703-10";
-import { openModal } from "./components/modal.js?v=20260703-10";
-import { toast } from "./components/toast.js?v=20260703-10";
-import { dataService } from "./services/dataService.js?v=20260703-10";
-import { renderDashboard } from "./pages/dashboard.js?v=20260703-10";
-import { renderNewRequest } from "./pages/newRequest.js?v=20260703-10";
-import { renderRequestsTable } from "./pages/requestsTable.js?v=20260703-10";
-import { renderUsers } from "./pages/users.js?v=20260703-10";
-import { renderCatalogs } from "./pages/catalogs.js?v=20260703-10";
-import { renderProfile } from "./pages/profile.js?v=20260703-10";
-import { renderNotifications } from "./pages/notifications.js?v=20260703-10";
+import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260703-11";
+import { openModal } from "./components/modal.js?v=20260703-11";
+import { toast } from "./components/toast.js?v=20260703-11";
+import { dataService } from "./services/dataService.js?v=20260703-11";
+import { renderDashboard } from "./pages/dashboard.js?v=20260703-11";
+import { renderNewRequest } from "./pages/newRequest.js?v=20260703-11";
+import { renderRequestsTable } from "./pages/requestsTable.js?v=20260703-11";
+import { renderUsers } from "./pages/users.js?v=20260703-11";
+import { renderCatalogs } from "./pages/catalogs.js?v=20260703-11";
+import { renderProfile } from "./pages/profile.js?v=20260703-11";
+import { renderNotifications } from "./pages/notifications.js?v=20260703-11";
 
 const root = document.querySelector("#app");
 const state = {

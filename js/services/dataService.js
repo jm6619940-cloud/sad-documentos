@@ -12,6 +12,35 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+const STORAGE_MIME_BY_EXTENSION = {
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  txt: "text/plain",
+  csv: "text/csv"
+};
+
+function storageFileName(file) {
+  const extension = getExtension(file.name);
+  const rawBase = file.name.replace(/\.[^/.]+$/, "");
+  const safeBase = rawBase
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90) || "archivo";
+
+  return `${crypto.randomUUID()}-${safeBase}.${extension}`;
+}
+
 function validateCreateRequestPayload(values, files, user) {
   const errors = [];
   const approvers = Array.from(new Set(values.aprobadores || [])).filter(Boolean);
@@ -114,15 +143,20 @@ export const dataService = {
     const createdId = data || solicitudId;
 
     for (const file of selectedFiles) {
-      const path = `${createdId}/${crypto.randomUUID()}-${file.name}`;
-      const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, file, { upsert: false });
+      const extension = getExtension(file.name);
+      const path = `${createdId}/${storageFileName(file)}`;
+      const contentType = file.type || STORAGE_MIME_BY_EXTENSION[extension] || "application/octet-stream";
+      const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, file, {
+        upsert: false,
+        contentType
+      });
       if (upload.error) throw upload.error;
       const insert = await supabase.from("archivos").insert({
         solicitud_id: createdId,
         nombre_original: file.name,
         nombre_storage: path.split("/").pop(),
-        mime_type: file.type,
-        extension: getExtension(file.name),
+        mime_type: contentType,
+        extension,
         tamano: file.size,
         ruta_storage: path
       });
