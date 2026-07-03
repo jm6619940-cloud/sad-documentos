@@ -1,11 +1,33 @@
 import { APP_CONFIG } from "../config.js";
 import { getSupabase } from "./supabaseClient.js";
 import { STATUS } from "../utils/constants.js";
-import { getExtension } from "../utils/validators.js";
+import { getExtension, validateFiles } from "../utils/validators.js";
 
 function stripPassword(values) {
   const { password, ...rest } = values;
   return rest;
+}
+
+function cleanText(value) {
+  return String(value || "").trim();
+}
+
+function validateCreateRequestPayload(values, files, user) {
+  const errors = [];
+  const approvers = Array.from(new Set(values.aprobadores || [])).filter(Boolean);
+  const selectedFiles = Array.from(files || []);
+
+  if (!cleanText(values.titulo)) errors.push("El titulo es obligatorio.");
+  if (!cleanText(values.descripcion)) errors.push("La descripcion es obligatoria.");
+  if (!cleanText(values.tipo_documento_id)) errors.push("Selecciona el tipo de documento.");
+  if (!cleanText(values.prioridad)) errors.push("Selecciona la prioridad.");
+  if (!approvers.length) errors.push("Selecciona al menos un aprobador.");
+  if (!selectedFiles.length) errors.push("Adjunta al menos un archivo.");
+  if (!user?.id) errors.push("No se encontro una sesion valida.");
+
+  errors.push(...validateFiles(selectedFiles).errors);
+  if (errors.length) throw new Error(errors.join(" "));
+  return { approvers, selectedFiles };
 }
 
 export const dataService = {
@@ -76,38 +98,27 @@ export const dataService = {
   async createRequest(values, files, user) {
     const supabase = await getSupabase();
     const solicitudId = crypto.randomUUID();
-    const { error } = await supabase
-      .from("solicitudes")
-      .insert({
-        id: solicitudId,
-        titulo: values.titulo,
-        descripcion: values.descripcion,
-        tipo_documento_id: values.tipo_documento_id,
-        departamento_id: user.departamento_id,
-        prioridad: values.prioridad,
-        estado: STATUS.PENDING,
-        creado_por: user.id,
-        observaciones: values.observaciones || ""
-      });
+    const { approvers, selectedFiles } = validateCreateRequestPayload(values, files, user);
+    const { data, error } = await supabase.rpc("crear_solicitud_con_aprobadores", {
+      p_id: solicitudId,
+      p_titulo: cleanText(values.titulo),
+      p_descripcion: cleanText(values.descripcion),
+      p_tipo_documento_id: values.tipo_documento_id,
+      p_departamento_id: user.departamento_id || null,
+      p_prioridad: cleanText(values.prioridad),
+      p_observaciones: cleanText(values.observaciones),
+      p_aprobadores: approvers
+    });
     if (error) throw error;
 
-    const approverRows = Array.from(new Set(values.aprobadores || [])).map((id, index) => ({
-      solicitud_id: solicitudId,
-      usuario_id: id,
-      orden: index + 1,
-      estado: STATUS.PENDING
-    }));
-    if (approverRows.length) {
-      const assignment = await supabase.from("solicitud_aprobadores").insert(approverRows);
-      if (assignment.error) throw assignment.error;
-    }
+    const createdId = data || solicitudId;
 
-    for (const file of Array.from(files || [])) {
-      const path = `${solicitudId}/${crypto.randomUUID()}-${file.name}`;
+    for (const file of selectedFiles) {
+      const path = `${createdId}/${crypto.randomUUID()}-${file.name}`;
       const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, file, { upsert: false });
       if (upload.error) throw upload.error;
       const insert = await supabase.from("archivos").insert({
-        solicitud_id: solicitudId,
+        solicitud_id: createdId,
         nombre_original: file.name,
         nombre_storage: path.split("/").pop(),
         mime_type: file.type,
@@ -117,8 +128,8 @@ export const dataService = {
       });
       if (insert.error) throw insert.error;
     }
-    await this.audit(user.id, solicitudId, "CREACION_SOLICITUD", "Solicitud creada.");
-    return { id: solicitudId };
+    await this.audit(user.id, createdId, "CREACION_SOLICITUD", "Solicitud creada.");
+    return { id: createdId };
   },
 
   async addComment(solicitudId, userId, comentario) {

@@ -1,5 +1,5 @@
 import { PRIORITIES } from "../utils/constants.js";
-import { requireFields, validateFiles } from "../utils/validators.js";
+import { validateFiles } from "../utils/validators.js";
 import { pageTitle } from "../components/layout.js";
 import { dataService } from "../services/dataService.js";
 import * as toastApi from "../components/toast.js";
@@ -12,6 +12,33 @@ const alertMessage = toastApi.alertMessage || ((title, messages, type = "warning
   toast(`${title}: ${list.join(", ")}`, type);
 });
 
+function validateRequestForm(values, files, hasApprovers) {
+  const errors = [];
+  const requiredFields = [
+    ["titulo", "El titulo es obligatorio."],
+    ["descripcion", "La descripcion es obligatoria."],
+    ["tipo_documento_id", "Selecciona el tipo de documento."],
+    ["prioridad", "Selecciona la prioridad."]
+  ];
+
+  requiredFields.forEach(([field, message]) => {
+    if (!String(values[field] ?? "").trim()) errors.push(message);
+  });
+
+  if (!hasApprovers) {
+    errors.push("No hay aprobadores activos disponibles. Pide al administrador que active al menos uno.");
+  } else if (!values.aprobadores.length) {
+    errors.push("Selecciona al menos un aprobador.");
+  }
+
+  if (!Array.from(files || []).length) {
+    errors.push("Adjunta al menos un archivo.");
+  }
+
+  const fileValidation = validateFiles(files);
+  return [...errors, ...fileValidation.errors];
+}
+
 export function renderNewRequest({ user, data, refresh, navigate }) {
   const approvers = data.profiles.filter((profile) => profile.rol === "aprobador" && profile.activo);
   const page = document.createElement("div");
@@ -19,7 +46,7 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
   page.append(pageTitle("Nueva solicitud", "Completa la informacion y adjunta los documentos necesarios."));
   page.insertAdjacentHTML("beforeend", `
     <section class="panel">
-      <form class="form" data-request-form>
+      <form class="form" data-request-form novalidate>
         <label class="field"><span>Titulo</span><input class="input form-control" name="titulo" required maxlength="160"></label>
         <label class="field"><span>Descripcion</span><textarea class="form-control" name="descripcion" rows="4" required></textarea></label>
         <div class="row g-3">
@@ -43,12 +70,12 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
         <label class="field"><span>Observaciones</span><textarea class="form-control" name="observaciones" rows="3"></textarea></label>
         <label class="field file-drop">
           <span>${icon("upload")} Adjuntar archivos</span>
-          <input class="form-control" type="file" name="files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.txt,.csv">
+          <input class="form-control" type="file" name="files" multiple required accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.txt,.csv">
           <small>Maximo 10 archivos, 20 MB por archivo.</small>
         </label>
         <ul class="file-list" data-selected-files></ul>
         <div class="toolbar">
-          <button class="button btn btn-primary" type="submit">${icon("check")} Crear solicitud</button>
+          <button class="button btn btn-primary" type="submit" ${approvers.length ? "" : "disabled"}>${icon("check")} Crear solicitud</button>
           <button class="button secondary btn btn-outline-secondary" type="button" data-cancel>Cancelar</button>
         </div>
       </form>
@@ -67,11 +94,11 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
     event.preventDefault();
     const formData = new FormData(form);
     const values = Object.fromEntries(formData.entries());
-    values.aprobadores = formData.getAll("aprobadores");
-    const fieldErrors = requireFields(values, ["titulo", "descripcion", "tipo_documento_id", "prioridad"]);
-    const fileValidation = validateFiles(fileInput.files);
-    const approverErrors = values.aprobadores.length ? [] : ["Selecciona al menos un aprobador."];
-    const errors = [...fieldErrors, ...approverErrors, ...fileValidation.errors];
+    values.titulo = String(values.titulo || "").trim();
+    values.descripcion = String(values.descripcion || "").trim();
+    values.observaciones = String(values.observaciones || "").trim();
+    values.aprobadores = formData.getAll("aprobadores").filter(Boolean);
+    const errors = validateRequestForm(values, fileInput.files, approvers.length > 0);
     if (errors.length) {
       alertMessage("Falta completar informacion", errors, "warning");
       return;
