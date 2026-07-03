@@ -13,6 +13,7 @@ const alertMessage = toastApi.alertMessage || ((title, messages, type = "warning
 });
 
 export function renderNewRequest({ user, data, refresh, navigate }) {
+  const approvers = data.profiles.filter((profile) => profile.rol === "aprobador" && profile.activo);
   const page = document.createElement("div");
   page.className = "grid";
   page.append(pageTitle("Nueva solicitud", "Completa la informacion y adjunta los documentos necesarios."));
@@ -25,6 +26,20 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
           <label class="field col-12 col-lg-6"><span>Tipo de documento</span><select class="form-select" name="tipo_documento_id" required>${data.tipos_documento.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.nombre)}</option>`).join("")}</select></label>
           <label class="field col-12 col-lg-6"><span>Prioridad</span><select class="form-select" name="prioridad" required>${PRIORITIES.map((item) => `<option>${escapeHtml(item)}</option>`).join("")}</select></label>
         </div>
+        <fieldset class="field approver-picker">
+          <legend>Aprobadores</legend>
+          <div class="approver-options">
+            ${approvers.length ? approvers.map((profile) => `
+              <label class="approver-option">
+                <input class="form-check-input" type="checkbox" name="aprobadores" value="${escapeAttr(profile.id)}">
+                <span>
+                  <strong>${escapeHtml(`${profile.nombre} ${profile.apellido}`.trim() || profile.correo)}</strong>
+                  <small>${escapeHtml(profile.correo)}</small>
+                </span>
+              </label>
+            `).join("") : "<p class='empty-state'>No hay aprobadores activos disponibles.</p>"}
+          </div>
+        </fieldset>
         <label class="field"><span>Observaciones</span><textarea class="form-control" name="observaciones" rows="3"></textarea></label>
         <label class="field file-drop">
           <span>${icon("upload")} Adjuntar archivos</span>
@@ -50,10 +65,13 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
   page.querySelector("[data-cancel]").addEventListener("click", () => navigate("my-requests"));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const values = Object.fromEntries(new FormData(form).entries());
+    const formData = new FormData(form);
+    const values = Object.fromEntries(formData.entries());
+    values.aprobadores = formData.getAll("aprobadores");
     const fieldErrors = requireFields(values, ["titulo", "descripcion", "tipo_documento_id", "prioridad"]);
     const fileValidation = validateFiles(fileInput.files);
-    const errors = [...fieldErrors, ...fileValidation.errors];
+    const approverErrors = values.aprobadores.length ? [] : ["Selecciona al menos un aprobador."];
+    const errors = [...fieldErrors, ...approverErrors, ...fileValidation.errors];
     if (errors.length) {
       alertMessage("Falta completar informacion", errors, "warning");
       return;

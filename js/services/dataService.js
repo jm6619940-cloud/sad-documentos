@@ -91,6 +91,17 @@ export const dataService = {
       });
     if (error) throw error;
 
+    const approverRows = Array.from(new Set(values.aprobadores || [])).map((id, index) => ({
+      solicitud_id: solicitudId,
+      usuario_id: id,
+      orden: index + 1,
+      estado: STATUS.PENDING
+    }));
+    if (approverRows.length) {
+      const assignment = await supabase.from("solicitud_aprobadores").insert(approverRows);
+      if (assignment.error) throw assignment.error;
+    }
+
     for (const file of Array.from(files || [])) {
       const path = `${solicitudId}/${crypto.randomUUID()}-${file.name}`;
       const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, file, { upsert: false });
@@ -125,13 +136,40 @@ export const dataService = {
     };
     const supabase = await getSupabase();
     const estado = statusByAction[action];
+    if (!estado) throw new Error("Accion no permitida.");
+    const now = new Date().toISOString();
+    const assigned = await supabase
+      .from("solicitud_aprobadores")
+      .update({ estado, comentario, fecha_accion: now })
+      .eq("solicitud_id", solicitudId)
+      .eq("usuario_id", user.id);
+    if (assigned.error) throw assigned.error;
+
+    let finalStatus = null;
+    if (estado === STATUS.REJECTED || estado === STATUS.CORRECTION) {
+      finalStatus = estado;
+    } else {
+      const approvals = await supabase
+        .from("solicitud_aprobadores")
+        .select("estado")
+        .eq("solicitud_id", solicitudId);
+      if (approvals.error) throw approvals.error;
+      if (approvals.data.length && approvals.data.every((item) => item.estado === STATUS.APPROVED)) {
+        finalStatus = STATUS.APPROVED;
+      }
+    }
+
+    if (!finalStatus) {
+      await this.audit(user.id, solicitudId, action.toUpperCase(), "Aprobacion individual registrada.");
+      return;
+    }
+
     const { error } = await supabase
       .from("solicitudes")
-      .update({ estado, aprobado_por: user.id, fecha_aprobacion: new Date().toISOString(), comentario_aprobacion: comentario || "" })
+      .update({ estado: finalStatus, aprobado_por: user.id, fecha_aprobacion: now, comentario_aprobacion: comentario || "" })
       .eq("id", solicitudId);
     if (error) throw error;
-    await supabase.from("solicitud_aprobadores").update({ estado, comentario, fecha_accion: new Date().toISOString() }).eq("solicitud_id", solicitudId).eq("usuario_id", user.id);
-    await this.audit(user.id, solicitudId, action.toUpperCase(), `Solicitud marcada como ${estado}.`);
+    await this.audit(user.id, solicitudId, action.toUpperCase(), `Solicitud marcada como ${finalStatus}.`);
   },
 
   async upsertCatalog(table, values) {

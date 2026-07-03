@@ -41,6 +41,7 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
             <th>Estado</th>
             <th>Tipo</th>
             <th>Prioridad</th>
+            <th>Aprobadores</th>
             <th>Fecha</th>
             <th>Ultima actualizacion</th>
             <th></th>
@@ -54,11 +55,12 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
               <td data-label="Estado"><span class="badge ${escapeAttr(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
               <td data-label="Tipo">${textOrDash(item.tipo?.nombre)}</td>
               <td data-label="Prioridad"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></td>
+              <td data-label="Aprobadores">${approverSummary(data, item.id)}</td>
               <td data-label="Fecha">${formatDate(item.created_at)}</td>
               <td data-label="Actualizacion">${formatDate(item.updated_at)}</td>
               <td data-label=""><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></td>
             </tr>
-          `).join("") || `<tr><td data-label="" colspan="9">No hay resultados.</td></tr>`}
+          `).join("") || `<tr><td data-label="" colspan="10">No hay resultados.</td></tr>`}
         </tbody>
       </table>
     `;
@@ -79,6 +81,8 @@ function filteredRows({ mode, user, data, filters }) {
   return data.solicitudes.filter((item) => {
     if (mode === "my-requests" && user.rol !== ROLES.ADMIN && item.creado_por !== user.id) return false;
     if (mode === "pending" && item.estado !== "Pendiente") return false;
+    if (mode === "pending" && user.rol === ROLES.APPROVER && !assignedToUser(data, item.id, user.id, "Pendiente")) return false;
+    if (mode === "history" && user.rol === ROLES.APPROVER && !assignedToUser(data, item.id, user.id)) return false;
     if (filters.estado && item.estado !== filters.estado) return false;
     if (filters.tipo && item.tipo_documento_id !== filters.tipo) return false;
     if (filters.text) {
@@ -87,6 +91,36 @@ function filteredRows({ mode, user, data, filters }) {
     }
     return true;
   });
+}
+
+function assignedToUser(data, solicitudId, userId, estado = "") {
+  return data.solicitud_aprobadores.some((item) => (
+    item.solicitud_id === solicitudId
+    && item.usuario_id === userId
+    && (!estado || item.estado === estado)
+  ));
+}
+
+function approverSummary(data, solicitudId) {
+  const rows = data.solicitud_aprobadores
+    .filter((item) => item.solicitud_id === solicitudId)
+    .sort((a, b) => a.orden - b.orden);
+  if (!rows.length) return "<span class='text-muted'>Sin asignar</span>";
+  return `
+    <div class="approval-summary">
+      ${rows.map((row) => `
+        <span class="approval-chip">
+          ${escapeHtml(profileName(data, row.usuario_id))}
+          <span class="badge ${escapeAttr(row.estado.split(" ")[0])}">${escapeHtml(row.estado)}</span>
+        </span>
+      `).join("")}
+    </div>
+  `;
+}
+
+function profileName(data, id) {
+  const profile = data.profiles.find((item) => item.id === id);
+  return profile ? `${profile.nombre} ${profile.apellido}`.trim() || profile.correo : "Aprobador";
 }
 
 function unique(items) {

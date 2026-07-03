@@ -5,16 +5,18 @@ import { toast } from "../components/toast.js";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
-function canApprove(user, solicitud) {
-  return [ROLES.ADMIN, ROLES.APPROVER].includes(user.rol) && solicitud.estado === STATUS.PENDING;
+function canApprove(user, solicitud, data) {
+  if (solicitud.estado !== STATUS.PENDING) return false;
+  const assignment = assignmentForUser(data, solicitud.id, user.id);
+  return user.rol === ROLES.APPROVER && assignment?.estado === STATUS.PENDING;
 }
 
-function canSee(user, solicitud) {
-  return user.rol === ROLES.ADMIN || solicitud.creado_por === user.id || user.rol === ROLES.APPROVER;
+function canSee(user, solicitud, data) {
+  return user.rol === ROLES.ADMIN || solicitud.creado_por === user.id || Boolean(assignmentForUser(data, solicitud.id, user.id));
 }
 
 export function renderRequestDetail({ solicitud, data, user, onChange }) {
-  if (!canSee(user, solicitud)) {
+  if (!canSee(user, solicitud, data)) {
     const denied = document.createElement("p");
     denied.textContent = "No tienes permisos para ver esta solicitud.";
     return denied;
@@ -22,6 +24,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
 
   const files = data.archivos.filter((file) => file.solicitud_id === solicitud.id);
   const comments = data.comentarios.filter((comment) => comment.solicitud_id === solicitud.id);
+  const approvalRows = approvalsForRequest(data, solicitud.id);
   const auditTrail = user.rol === ROLES.ADMIN
     ? (data.auditoria || []).filter((entry) => entry.solicitud_id === solicitud.id)
     : [];
@@ -60,6 +63,23 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
       </ul>
     </section>
     <section class="grid">
+      <h3>Aprobadores</h3>
+      <ul class="approval-list">
+        ${approvalRows.length ? approvalRows.map((row) => `
+          <li class="approval-item">
+            <div>
+              <strong>${escapeHtml(profileName(data, row.usuario_id))}</strong>
+              <p>${row.comentario ? escapeHtml(row.comentario) : "Sin comentario."}</p>
+            </div>
+            <div class="approval-state">
+              <span class="badge ${escapeAttr(row.estado.split(" ")[0])}">${escapeHtml(row.estado)}</span>
+              ${row.fecha_accion ? `<small>${formatDate(row.fecha_accion)}</small>` : "<small>Pendiente de accion</small>"}
+            </div>
+          </li>
+        `).join("") : "<li class='empty-state'>No hay aprobadores asignados.</li>"}
+      </ul>
+    </section>
+    <section class="grid">
       <h3>Comentarios</h3>
       <ul class="timeline">
         ${comments.length ? comments.map((comment) => `<li class="timeline-item"><strong>${escapeHtml(comment.usuario?.nombre || profileName(data, comment.usuario_id))}</strong><p>${escapeHtml(comment.comentario)}</p><small>${formatDate(comment.created_at)}</small></li>`).join("") : "<li class='empty-state'>Sin comentarios.</li>"}
@@ -86,7 +106,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
         </ul>
       </section>
     ` : ""}
-    ${canApprove(user, solicitud) ? `
+    ${canApprove(user, solicitud, data) ? `
       <section class="panel">
         <h3>Decision</h3>
         <form class="form" data-action-form>
@@ -229,6 +249,16 @@ function closeFilePreview() {
 function profileName(data, id) {
   const profile = data.profiles.find((item) => item.id === id);
   return profile ? `${profile.nombre} ${profile.apellido}` : "Usuario";
+}
+
+function approvalsForRequest(data, solicitudId) {
+  return data.solicitud_aprobadores
+    .filter((item) => item.solicitud_id === solicitudId)
+    .sort((a, b) => a.orden - b.orden);
+}
+
+function assignmentForUser(data, solicitudId, userId) {
+  return data.solicitud_aprobadores.find((item) => item.solicitud_id === solicitudId && item.usuario_id === userId);
 }
 
 function shortUserAgent(value = "") {
