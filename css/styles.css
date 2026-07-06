@@ -474,6 +474,10 @@ td {
   text-align: right;
 }
 
+.compact-date {
+  font-size: 0.86rem;
+}
+
 th {
   color: var(--muted);
   font-size: 0.72rem;

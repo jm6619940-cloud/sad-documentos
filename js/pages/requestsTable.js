@@ -1,9 +1,9 @@
 import { ROLES } from "../utils/constants.js";
-import { formatDateOnly, normalize } from "../utils/format.js?v=20260706-10";
+import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260706-11";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260706-10";
+import { renderRequestDetail } from "./requestDetail.js?v=20260706-11";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
@@ -36,8 +36,8 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
     const filters = Object.fromEntries([...page.querySelectorAll("[data-filter]")].map((input) => [input.dataset.filter, input.value]));
     const rows = filteredRows({ mode, user, data, filters });
     const tableColumns = isPending || isHistory
-      ? [24, 10, 10, 8, 7, 7, 16, 7, 7, 4]
-      : [34, 10, 9, 7, 20, 8, 8, 4];
+      ? [22, 9, 9, 8, 7, 7, 14, 10, 10, 4]
+      : [30, 10, 9, 7, 18, 11, 11, 4];
     page.querySelector("[data-table]").innerHTML = `
       <table class="table table-hover align-middle request-table">
         <colgroup>
@@ -65,8 +65,8 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
               <td data-label="Tipo" title="${escapeAttr(item.tipo?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.tipo?.nombre)}</span></td>
               <td data-label="Prioridad"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></td>
               <td data-label="Aprobadores">${approverSummary(data, item.id)}</td>
-              <td data-label="Fecha"><span class="cell-ellipsis">${formatDateOnly(item.created_at)}</span></td>
-              <td data-label="Actualizacion"><span class="cell-ellipsis">${formatDateOnly(item.updated_at)}</span></td>
+              <td data-label="Fecha"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.created_at)}</span></td>
+              <td data-label="Actualizacion"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.updated_at)}</span></td>
               <td data-label=""><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></td>
             </tr>
           `).join("") || `<tr><td data-label="" colspan="10">No hay resultados.</td></tr>`}

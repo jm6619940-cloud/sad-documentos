@@ -13,6 +13,17 @@ export function formatDateOnly(value) {
   }).format(new Date(value));
 }
 
+export function formatDateTimeCompact(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("es-DO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
 export function formatBytes(bytes = 0) {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
