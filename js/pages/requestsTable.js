@@ -1,9 +1,9 @@
 import { ROLES } from "../utils/constants.js";
-import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260706-11";
+import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260706-12";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260706-11";
+import { renderRequestDetail } from "./requestDetail.js?v=20260706-12";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
@@ -35,43 +35,36 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
   const renderRows = () => {
     const filters = Object.fromEntries([...page.querySelectorAll("[data-filter]")].map((input) => [input.dataset.filter, input.value]));
     const rows = filteredRows({ mode, user, data, filters });
-    const tableColumns = isPending || isHistory
-      ? [22, 9, 9, 8, 7, 7, 14, 10, 10, 4]
-      : [30, 10, 9, 7, 18, 11, 11, 4];
+    const gridClass = isPending || isHistory ? "request-grid-wide" : "request-grid-own";
     page.querySelector("[data-table]").innerHTML = `
-      <table class="table table-hover align-middle request-table">
-        <colgroup>
-          ${tableColumns.map((width) => `<col style="width:${width}%">`).join("")}
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Titulo</th>
-            ${isPending || isHistory ? "<th>Solicitante</th><th>Departamento</th>" : ""}
-            <th>Estado</th>
-            <th>Tipo</th>
-            <th>Prioridad</th>
-            <th>Aprobadores</th>
-            <th>Fecha</th>
-            <th>Ultima actualizacion</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
+      <div class="request-list ${gridClass}" role="table">
+        <div class="request-grid request-header" role="row">
+          <span role="columnheader">Titulo</span>
+          ${isPending || isHistory ? `<span role="columnheader">Solicitante</span><span role="columnheader">Departamento</span>` : ""}
+          <span role="columnheader">Estado</span>
+          <span role="columnheader">Tipo</span>
+          <span role="columnheader">Prioridad</span>
+          <span role="columnheader">Aprobadores</span>
+          <span role="columnheader">Fecha</span>
+          <span role="columnheader">Ultima actualizacion</span>
+          <span role="columnheader"></span>
+        </div>
+        <div class="request-list-body">
           ${rows.map((item) => `
-            <tr class="clickable-row" data-row-detail="${escapeAttr(item.id)}" tabindex="0">
-              <td data-label="Titulo" title="${escapeAttr(item.titulo || item.codigo)}"><strong class="cell-ellipsis">${escapeHtml(item.titulo || item.codigo)}</strong></td>
-              ${isPending || isHistory ? `<td data-label="Solicitante" title="${escapeAttr(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`.trim())}"><span class="cell-ellipsis">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</span></td><td data-label="Departamento" title="${escapeAttr(item.departamento?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.departamento?.nombre)}</span></td>` : ""}
-              <td data-label="Estado"><span class="badge ${escapeAttr(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
-              <td data-label="Tipo" title="${escapeAttr(item.tipo?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.tipo?.nombre)}</span></td>
-              <td data-label="Prioridad"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></td>
-              <td data-label="Aprobadores">${approverSummary(data, item.id)}</td>
-              <td data-label="Fecha"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.created_at)}</span></td>
-              <td data-label="Actualizacion"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.updated_at)}</span></td>
-              <td data-label=""><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></td>
-            </tr>
-          `).join("") || `<tr><td data-label="" colspan="10">No hay resultados.</td></tr>`}
-        </tbody>
-      </table>
+            <div class="request-grid request-row clickable-row" data-row-detail="${escapeAttr(item.id)}" role="row" tabindex="0">
+              <div class="request-cell" data-label="Titulo" role="cell" title="${escapeAttr(item.titulo || item.codigo)}"><strong class="cell-ellipsis">${escapeHtml(item.titulo || item.codigo)}</strong></div>
+              ${isPending || isHistory ? `<div class="request-cell" data-label="Solicitante" role="cell" title="${escapeAttr(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`.trim())}"><span class="cell-ellipsis">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</span></div><div class="request-cell" data-label="Departamento" role="cell" title="${escapeAttr(item.departamento?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.departamento?.nombre)}</span></div>` : ""}
+              <div class="request-cell" data-label="Estado" role="cell"><span class="badge ${escapeAttr(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></div>
+              <div class="request-cell" data-label="Tipo" role="cell" title="${escapeAttr(item.tipo?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.tipo?.nombre)}</span></div>
+              <div class="request-cell" data-label="Prioridad" role="cell"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></div>
+              <div class="request-cell" data-label="Aprobadores" role="cell">${approverSummary(data, item.id)}</div>
+              <div class="request-cell" data-label="Fecha" role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.created_at)}</span></div>
+              <div class="request-cell" data-label="Actualizacion" role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.updated_at)}</span></div>
+              <div class="request-cell request-actions" data-label="" role="cell"><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></div>
+            </div>
+          `).join("") || `<div class="empty-state">No hay resultados.</div>`}
+        </div>
+      </div>
     `;
     page.querySelectorAll("[data-detail]").forEach((button) => {
       button.addEventListener("click", () => {

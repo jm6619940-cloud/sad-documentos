@@ -478,6 +478,65 @@ td {
   font-size: 0.86rem;
 }
 
+.request-list {
+  width: 100%;
+  min-width: 0;
+}
+
+.request-grid {
+  display: grid;
+  grid-template-columns: var(--request-columns);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.request-grid-wide {
+  --request-columns: minmax(0, 2.8fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 0.85fr) minmax(0, 0.75fr) minmax(0, 0.75fr) minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr) 64px;
+}
+
+.request-grid-own {
+  --request-columns: minmax(0, 3fr) minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 0.72fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 64px;
+}
+
+.request-header {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.request-row {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.request-row:hover {
+  background: #fafcff;
+}
+
+.request-row:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+  outline-offset: 2px;
+}
+
+.request-cell,
+.request-header span {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.request-actions {
+  overflow: visible;
+  justify-self: end;
+}
+
 th {
   color: var(--muted);
   font-size: 0.72rem;
@@ -1556,6 +1615,68 @@ tr:hover td {
 
   .request-table td {
     max-width: 100%;
+  }
+
+  .request-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .request-header {
+    display: none;
+  }
+
+  .request-list-body {
+    display: grid;
+    gap: 12px;
+  }
+
+  .request-grid {
+    display: block;
+  }
+
+  .request-row {
+    width: 100%;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 8px 18px rgba(25, 36, 55, 0.06);
+    overflow: hidden;
+  }
+
+  .request-cell {
+    display: block;
+    width: 100%;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 12px;
+  }
+
+  .request-cell:last-child {
+    border-bottom: 0;
+  }
+
+  .request-cell::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .request-cell[data-label=""]::before {
+    display: none;
+  }
+
+  .request-actions {
+    justify-self: stretch;
+  }
+
+  .request-actions .button {
+    width: 100%;
   }
 
   table td:last-child {
