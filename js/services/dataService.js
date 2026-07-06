@@ -59,6 +59,55 @@ function validateCreateRequestPayload(values, files, user) {
   return { approvers, selectedFiles };
 }
 
+function validateCorrectionPayload({ values, files, removeFileIds, existingFiles, user }) {
+  const errors = [];
+  const selectedFiles = Array.from(files || []);
+  const removed = new Set(removeFileIds || []);
+  const remainingFiles = existingFiles.filter((file) => !removed.has(file.id)).length + selectedFiles.length;
+
+  if (!cleanText(values.titulo)) errors.push("El titulo es obligatorio.");
+  if (!cleanText(values.descripcion)) errors.push("La descripcion es obligatoria.");
+  if (!cleanText(values.tipo_documento_id)) errors.push("Selecciona el tipo de documento.");
+  if (!cleanText(values.prioridad)) errors.push("Selecciona la prioridad.");
+  if (!remainingFiles) errors.push("La solicitud debe conservar al menos un archivo.");
+  if (!user?.id) errors.push("No se encontro una sesion valida.");
+
+  errors.push(...validateFiles(selectedFiles).errors);
+  if (errors.length) throw new Error(errors.join(" "));
+  return { selectedFiles, removedFileIds: [...removed] };
+}
+
+async function uploadRequestFiles(supabase, solicitudId, files) {
+  for (const file of files) {
+    const extension = getExtension(file.name);
+    const path = `${solicitudId}/${storageFileName(file)}`;
+    const contentType = file.type || STORAGE_MIME_BY_EXTENSION[extension] || "application/octet-stream";
+    const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, file, {
+      upsert: false,
+      contentType
+    });
+    if (upload.error) throw upload.error;
+    const insert = await supabase.from("archivos").insert({
+      solicitud_id: solicitudId,
+      nombre_original: file.name,
+      nombre_storage: path.split("/").pop(),
+      mime_type: contentType,
+      extension,
+      tamano: file.size,
+      ruta_storage: path
+    });
+    if (insert.error) throw insert.error;
+  }
+}
+
+async function deleteRequestFiles(supabase, files) {
+  if (!files.length) return;
+  const storage = await supabase.storage.from(APP_CONFIG.storageBucket).remove(files.map((file) => file.ruta_storage));
+  if (storage.error) throw storage.error;
+  const deleted = await supabase.from("archivos").delete().in("id", files.map((file) => file.id));
+  if (deleted.error) throw deleted.error;
+}
+
 export const dataService = {
   async signIn(email, password) {
     const supabase = await getSupabase();
@@ -142,28 +191,29 @@ export const dataService = {
 
     const createdId = data || solicitudId;
 
-    for (const file of selectedFiles) {
-      const extension = getExtension(file.name);
-      const path = `${createdId}/${storageFileName(file)}`;
-      const contentType = file.type || STORAGE_MIME_BY_EXTENSION[extension] || "application/octet-stream";
-      const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, file, {
-        upsert: false,
-        contentType
-      });
-      if (upload.error) throw upload.error;
-      const insert = await supabase.from("archivos").insert({
-        solicitud_id: createdId,
-        nombre_original: file.name,
-        nombre_storage: path.split("/").pop(),
-        mime_type: contentType,
-        extension,
-        tamano: file.size,
-        ruta_storage: path
-      });
-      if (insert.error) throw insert.error;
-    }
+    await uploadRequestFiles(supabase, createdId, selectedFiles);
     await this.audit(user.id, createdId, "CREACION_SOLICITUD", "Solicitud creada.");
     return { id: createdId };
+  },
+
+  async updateRequestCorrection({ solicitud, values, files, removeFileIds, existingFiles, user }) {
+    const supabase = await getSupabase();
+    const { selectedFiles, removedFileIds } = validateCorrectionPayload({ values, files, removeFileIds, existingFiles, user });
+    const filesToRemove = existingFiles.filter((file) => removedFileIds.includes(file.id));
+
+    await uploadRequestFiles(supabase, solicitud.id, selectedFiles);
+    await deleteRequestFiles(supabase, filesToRemove);
+
+    const { error } = await supabase.rpc("reenviar_solicitud_corregida", {
+      p_id: solicitud.id,
+      p_titulo: cleanText(values.titulo),
+      p_descripcion: cleanText(values.descripcion),
+      p_tipo_documento_id: values.tipo_documento_id,
+      p_prioridad: cleanText(values.prioridad),
+      p_observaciones: cleanText(values.observaciones)
+    });
+    if (error) throw error;
+    await this.audit(user.id, solicitud.id, "REENVIO_CORRECCION", "Solicitud corregida y reenviada.");
   },
 
   async addComment(solicitudId, userId, comentario) {

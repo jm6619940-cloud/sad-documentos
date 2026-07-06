@@ -587,6 +587,53 @@ tr:hover td {
   margin: 0;
 }
 
+.correction-panel {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.correction-files {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.correction-files legend {
+  float: none;
+  width: auto;
+  margin-bottom: 6px;
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
+.correction-file-option {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.correction-file-option + .correction-file-option {
+  margin-top: 8px;
+}
+
+.correction-file-option small {
+  display: block;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.correction-file-option em {
+  color: var(--danger);
+  font-style: normal;
+  font-weight: 750;
+}
+
 .request-detail {
   gap: 10px;
 }

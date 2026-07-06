@@ -1,8 +1,8 @@
-import { ROLES, STATUS } from "../utils/constants.js";
+import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260706-2";
-import { toast } from "../components/toast.js?v=20260706-2";
-import { closeModal } from "../components/modal.js?v=20260706-2";
+import { dataService } from "../services/dataService.js?v=20260706-3";
+import { toast } from "../components/toast.js?v=20260706-3";
+import { closeModal } from "../components/modal.js?v=20260706-3";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
@@ -18,6 +18,10 @@ function canApprove(user, solicitud, data) {
 
 function canSee(user, solicitud, data) {
   return user.rol === ROLES.ADMIN || solicitud.creado_por === user.id || Boolean(assignmentForUser(data, solicitud.id, user.id));
+}
+
+function canEditCorrection(user, solicitud) {
+  return solicitud.estado === STATUS.CORRECTION && solicitud.creado_por === user.id;
 }
 
 export function renderRequestDetail({ solicitud, data, user, onChange }) {
@@ -67,6 +71,52 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
         `).join("") : "<li class='empty-state'>No hay archivos adjuntos.</li>"}
       </ul>
     </section>
+    ${canEditCorrection(user, solicitud) ? `
+      <section class="panel correction-panel">
+        <h3>Enviar correccion</h3>
+        <form class="form" data-correction-form novalidate>
+          <label class="field"><span>Titulo</span><input class="input form-control" name="titulo" required maxlength="160" value="${escapeAttr(solicitud.titulo || "")}"></label>
+          <label class="field"><span>Descripcion</span><textarea class="form-control" name="descripcion" rows="3" required>${escapeHtml(solicitud.descripcion || "")}</textarea></label>
+          <div class="row g-3">
+            <label class="field col-12 col-lg-6">
+              <span>Tipo de documento</span>
+              <select class="form-select" name="tipo_documento_id" required>
+                ${data.tipos_documento.map((item) => `<option value="${escapeAttr(item.id)}" ${item.id === solicitud.tipo_documento_id ? "selected" : ""}>${escapeHtml(item.nombre)}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field col-12 col-lg-6">
+              <span>Prioridad</span>
+              <select class="form-select" name="prioridad" required>
+                ${PRIORITIES.map((item) => `<option ${item === solicitud.prioridad ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}
+              </select>
+            </label>
+          </div>
+          <label class="field"><span>Observaciones</span><textarea class="form-control" name="observaciones" rows="2">${escapeHtml(solicitud.observaciones || "")}</textarea></label>
+          <fieldset class="field correction-files">
+            <legend>Archivos actuales</legend>
+            ${files.length ? files.map((file) => `
+              <label class="correction-file-option">
+                <input class="form-check-input" type="checkbox" name="remove_files" value="${escapeAttr(file.id)}">
+                <span>
+                  <strong>${escapeHtml(file.nombre_original)}</strong>
+                  <small>${escapeHtml(file.extension?.toUpperCase())} · ${formatBytes(file.tamano)}</small>
+                </span>
+                <em>Eliminar</em>
+              </label>
+            `).join("") : "<p class='empty-state'>No hay archivos actuales.</p>"}
+          </fieldset>
+          <label class="field file-drop">
+            <span>${icon("upload")} Adjuntar archivos corregidos</span>
+            <input class="form-control" type="file" name="files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.txt,.csv">
+            <small>Puedes reemplazar el documento marcando el anterior para eliminar y adjuntando el corregido.</small>
+          </label>
+          <ul class="file-list" data-correction-selected-files></ul>
+          <div class="toolbar">
+            <button class="button btn btn-primary" type="submit">${icon("check")} Guardar correccion</button>
+          </div>
+        </form>
+      </section>
+    ` : ""}
     <section class="grid">
       <h3>Aprobadores</h3>
       <ul class="approval-list">
@@ -176,6 +226,42 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     toast("Decision registrada.", "success");
     closeModal();
     await onChange();
+  });
+
+  const correctionForm = view.querySelector("[data-correction-form]");
+  correctionForm?.elements.files.addEventListener("change", () => {
+    const list = view.querySelector("[data-correction-selected-files]");
+    list.innerHTML = Array.from(correctionForm.elements.files.files).map((file) => `<li class="file-item">${escapeHtml(file.name)}</li>`).join("");
+  });
+  correctionForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitter = event.submitter;
+    submitter.disabled = true;
+    const previousLabel = submitter.innerHTML;
+    submitter.textContent = "Guardando...";
+    try {
+      const formData = new FormData(correctionForm);
+      const values = Object.fromEntries(formData.entries());
+      values.titulo = String(values.titulo || "").trim();
+      values.descripcion = String(values.descripcion || "").trim();
+      values.observaciones = String(values.observaciones || "").trim();
+      await dataService.updateRequestCorrection({
+        solicitud,
+        values,
+        files: correctionForm.elements.files.files,
+        removeFileIds: formData.getAll("remove_files"),
+        existingFiles: files,
+        user
+      });
+      toast("Correccion enviada.", "success");
+      closeModal();
+      await onChange();
+    } catch (error) {
+      toast(error.message || "No fue posible guardar la correccion.", "error");
+    } finally {
+      submitter.innerHTML = previousLabel;
+      submitter.disabled = false;
+    }
   });
 
   return view;
