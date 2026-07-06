@@ -1,6 +1,6 @@
 import { pageTitle } from "../components/layout.js";
-import { dataService } from "../services/dataService.js?v=20260706-13";
-import { toast } from "../components/toast.js?v=20260706-13";
+import { dataService } from "../services/dataService.js?v=20260706-14";
+import { toast } from "../components/toast.js?v=20260706-14";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderCatalogs({ data, refresh }) {

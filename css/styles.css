@@ -487,7 +487,7 @@ td {
   display: grid;
   grid-template-columns: var(--request-columns);
   gap: 12px;
-  align-items: center;
+  align-items: start;
   min-width: 0;
 }
 
@@ -527,9 +527,18 @@ td {
 .request-header span {
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.request-list .cell-ellipsis,
+.request-list .approval-name {
+  display: inline;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .request-actions {
@@ -843,12 +852,12 @@ tr:hover td {
 
 .approval-summary {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 5px;
   align-items: center;
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .approval-chip {
@@ -862,8 +871,8 @@ tr:hover td {
   background: #fbfcfe;
   font-size: 0.78rem;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
+  overflow: visible;
+  white-space: normal;
 }
 
 .approval-chip .badge {
