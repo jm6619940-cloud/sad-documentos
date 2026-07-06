@@ -1,7 +1,8 @@
 import { ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260706-1";
-import { toast } from "../components/toast.js?v=20260706-1";
+import { dataService } from "../services/dataService.js?v=20260706-2";
+import { toast } from "../components/toast.js?v=20260706-2";
+import { closeModal } from "../components/modal.js?v=20260706-2";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
@@ -163,6 +164,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     const form = new FormData(event.currentTarget);
     await dataService.addComment(solicitud.id, user.id, form.get("comentario"));
     toast("Comentario agregado.", "success");
+    closeModal();
     await onChange();
   });
 
@@ -172,6 +174,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     const form = new FormData(event.currentTarget);
     await dataService.actOnRequest(solicitud.id, user, submitter.value, form.get("comentario"));
     toast("Decision registrada.", "success");
+    closeModal();
     await onChange();
   });
 
