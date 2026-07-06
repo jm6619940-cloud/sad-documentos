@@ -1,9 +1,13 @@
 import { ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260703-11";
-import { toast } from "../components/toast.js?v=20260703-11";
+import { dataService } from "../services/dataService.js?v=20260706-1";
+import { toast } from "../components/toast.js?v=20260706-1";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
+
+const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
+const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
+let pdfJsPromise;
 
 function canApprove(user, solicitud, data) {
   if (solicitud.estado !== STATUS.PENDING) return false;
@@ -177,6 +181,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
 function previewMarkup(file, source = "") {
   if (!source) return previewUnavailable(file);
   if (isImage(file)) return `<img class="quicklook-media quicklook-image" src="${escapeAttr(source)}" alt="${escapeAttr(file.nombre_original)}">`;
+  if (isPdf(file)) return `<div class="pdf-preview" data-pdf-source="${escapeAttr(source)}"><div class="pdf-loading">Cargando PDF...</div></div>`;
   if (isFramePreview(file)) return `<iframe class="quicklook-media quicklook-frame" src="${escapeAttr(source)}" title="${escapeAttr(file.nombre_original)}"></iframe>`;
   return previewUnavailable(file);
 }
@@ -194,8 +199,12 @@ function isImage(file) {
   return ["jpg", "jpeg", "png", "webp"].includes(file.extension);
 }
 
+function isPdf(file) {
+  return file.extension === "pdf" || file.mime_type === "application/pdf";
+}
+
 function isFramePreview(file) {
-  return ["pdf", "txt", "csv"].includes(file.extension) || file.mime_type?.startsWith("text/");
+  return ["txt", "csv"].includes(file.extension) || file.mime_type?.startsWith("text/");
 }
 
 function openFilePreview(file, source, onDownload) {
@@ -236,6 +245,13 @@ function openFilePreview(file, source, onDownload) {
   window.addEventListener("keydown", handleKeydown, true);
   document.body.classList.add("file-preview-open");
   document.body.append(root);
+
+  const pdfPreview = root.querySelector("[data-pdf-source]");
+  if (pdfPreview) {
+    renderPdfPreview(pdfPreview, source).catch(() => {
+      pdfPreview.innerHTML = previewUnavailable(file);
+    });
+  }
 }
 
 function closeFilePreview() {
@@ -244,6 +260,50 @@ function closeFilePreview() {
   window.removeEventListener("keydown", root.handleFilePreviewKeydown, true);
   root.remove();
   document.body.classList.remove("file-preview-open");
+}
+
+async function getPdfJs() {
+  if (!pdfJsPromise) {
+    pdfJsPromise = import(PDFJS_URL).then((pdfjs) => {
+      pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+      return pdfjs;
+    });
+  }
+  return pdfJsPromise;
+}
+
+async function renderPdfPreview(container, source) {
+  const pdfjs = await getPdfJs();
+  const loadingTask = pdfjs.getDocument({ url: source });
+  const pdf = await loadingTask.promise;
+  container.innerHTML = `<div class="pdf-pages" data-pdf-pages></div>`;
+  const pages = container.querySelector("[data-pdf-pages]");
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    if (!document.body.contains(container)) return;
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 1 });
+    const targetWidth = Math.min(1100, Math.max(280, container.clientWidth - 18));
+    const scale = targetWidth / viewport.width;
+    const scaledViewport = page.getViewport({ scale });
+    const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+    const pageBox = document.createElement("article");
+    pageBox.className = "pdf-page";
+    pageBox.innerHTML = `<span>Pagina ${pageNumber} de ${pdf.numPages}</span>`;
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    canvas.width = Math.floor(scaledViewport.width * outputScale);
+    canvas.height = Math.floor(scaledViewport.height * outputScale);
+    canvas.style.width = `${Math.floor(scaledViewport.width)}px`;
+    canvas.style.height = `${Math.floor(scaledViewport.height)}px`;
+    pageBox.append(canvas);
+    pages.append(pageBox);
+    await page.render({
+      canvasContext: context,
+      viewport: scaledViewport,
+      transform: outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0]
+    }).promise;
+  }
 }
 
 function profileName(data, id) {
