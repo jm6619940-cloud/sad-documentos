@@ -3,12 +3,13 @@ import { formatDate, normalize } from "../utils/format.js";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260706-5";
+import { renderRequestDetail } from "./requestDetail.js?v=20260706-6";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
   const isPending = mode === "pending";
   const isHistory = mode === "history";
+  const usePriorityFilter = isPending && user.rol === ROLES.APPROVER;
   const page = document.createElement("div");
   page.className = "grid";
   page.append(pageTitle(
@@ -21,7 +22,9 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
         <h2>${isPending ? "Cola de aprobacion" : "Solicitudes"}</h2>
         <div class="toolbar">
           <input class="input form-control" data-filter="text" placeholder="Buscar">
-          <select class="form-select" data-filter="estado"><option value="">Estado</option>${unique(data.solicitudes.map((item) => item.estado)).map(option).join("")}</select>
+          ${usePriorityFilter
+            ? `<select class="form-select" data-filter="prioridad"><option value="">Prioridad</option>${unique(data.solicitudes.map((item) => item.prioridad)).map(option).join("")}</select>`
+            : `<select class="form-select" data-filter="estado"><option value="">Estado</option>${unique(data.solicitudes.map((item) => item.estado)).map(option).join("")}</select>`}
           <select class="form-select" data-filter="tipo"><option value="">Tipo</option>${data.tipos_documento.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.nombre)}</option>`).join("")}</select>
         </div>
       </div>
@@ -84,6 +87,7 @@ function filteredRows({ mode, user, data, filters }) {
     if (mode === "pending" && user.rol === ROLES.APPROVER && !assignedToUser(data, item.id, user.id, "Pendiente")) return false;
     if (mode === "history" && user.rol === ROLES.APPROVER && !assignedToUser(data, item.id, user.id)) return false;
     if (filters.estado && item.estado !== filters.estado) return false;
+    if (filters.prioridad && item.prioridad !== filters.prioridad) return false;
     if (filters.tipo && item.tipo_documento_id !== filters.tipo) return false;
     if (filters.text) {
       const haystack = normalize(`${item.codigo} ${item.titulo} ${item.descripcion} ${item.creador?.nombre || ""} ${item.departamento?.nombre || ""}`);

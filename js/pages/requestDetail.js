@@ -1,8 +1,8 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260706-5";
-import { toast } from "../components/toast.js?v=20260706-5";
-import { closeModal } from "../components/modal.js?v=20260706-5";
+import { dataService } from "../services/dataService.js?v=20260706-6";
+import { toast } from "../components/toast.js?v=20260706-6";
+import { closeModal } from "../components/modal.js?v=20260706-6";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
@@ -176,6 +176,10 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
       </section>
     ` : ""}
   `;
+
+  if (view.querySelector("[data-action-form]")) {
+    view.querySelector("[data-comment-form]")?.remove();
+  }
 
   view.querySelectorAll("[data-download]").forEach((button) => {
     button.addEventListener("click", async () => {
