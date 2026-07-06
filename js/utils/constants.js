@@ -30,7 +30,7 @@ export const BLOCKED_EXTENSIONS = ["exe", "bat", "msi", "dll", "js", "cmd", "scr
 export const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "grid", roles: [ROLES.ADMIN, ROLES.REQUESTER, ROLES.APPROVER] },
   { id: "new-request", label: "Nueva solicitud", icon: "plus", roles: [ROLES.ADMIN, ROLES.REQUESTER] },
-  { id: "my-requests", label: "Mis solicitudes", icon: "folder", roles: [ROLES.ADMIN, ROLES.REQUESTER, ROLES.APPROVER] },
+  { id: "my-requests", label: "Mis solicitudes", icon: "folder", roles: [ROLES.ADMIN, ROLES.REQUESTER,] },
   { id: "pending", label: "Pendientes", icon: "clock", roles: [ROLES.ADMIN, ROLES.APPROVER] },
   { id: "history", label: "Historial", icon: "search", roles: [ROLES.ADMIN, ROLES.APPROVER] },
   { id: "users", label: "Usuarios", icon: "users", roles: [ROLES.ADMIN] },
