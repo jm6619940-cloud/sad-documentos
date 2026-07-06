@@ -6,6 +6,13 @@ export function formatDate(value, options = {}) {
   }).format(new Date(value));
 }
 
+export function formatDateOnly(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("es-DO", {
+    dateStyle: "medium"
+  }).format(new Date(value));
+}
+
 export function formatBytes(bytes = 0) {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB"];

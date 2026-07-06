@@ -433,6 +433,11 @@ table {
   min-width: 640px;
 }
 
+.request-table {
+  table-layout: fixed;
+  min-width: 1120px;
+}
+
 th,
 td {
   padding: 7px 9px;
@@ -440,6 +445,33 @@ td {
   text-align: left;
   vertical-align: middle;
   overflow-wrap: anywhere;
+}
+
+.request-table th,
+.request-table td {
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-ellipsis,
+.approval-name {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.request-table td[data-label="Aprobadores"] {
+  overflow: hidden;
+}
+
+.request-table td[data-label=""] {
+  overflow: visible;
+  text-align: right;
 }
 
 th {
@@ -748,8 +780,11 @@ tr:hover td {
 
 .approval-summary {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .approval-chip {
@@ -762,6 +797,13 @@ tr:hover td {
   border-radius: var(--radius);
   background: #fbfcfe;
   font-size: 0.78rem;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.approval-chip .badge {
+  flex: 0 0 auto;
 }
 
 .audit-item {

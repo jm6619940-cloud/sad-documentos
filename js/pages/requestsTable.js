@@ -1,9 +1,9 @@
 import { ROLES } from "../utils/constants.js";
-import { formatDate, normalize } from "../utils/format.js";
+import { formatDateOnly, normalize } from "../utils/format.js?v=20260706-8";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260706-7";
+import { renderRequestDetail } from "./requestDetail.js?v=20260706-8";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
@@ -35,8 +35,14 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
   const renderRows = () => {
     const filters = Object.fromEntries([...page.querySelectorAll("[data-filter]")].map((input) => [input.dataset.filter, input.value]));
     const rows = filteredRows({ mode, user, data, filters });
+    const tableColumns = isPending || isHistory
+      ? [21, 10, 11, 8, 8, 7, 14, 7, 7, 7]
+      : [30, 10, 10, 8, 18, 8, 8, 8];
     page.querySelector("[data-table]").innerHTML = `
-      <table class="table table-hover align-middle">
+      <table class="table table-hover align-middle request-table">
+        <colgroup>
+          ${tableColumns.map((width) => `<col style="width:${width}%">`).join("")}
+        </colgroup>
         <thead>
           <tr>
             <th>Titulo</th>
@@ -53,14 +59,14 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
         <tbody>
           ${rows.map((item) => `
             <tr class="clickable-row" data-row-detail="${escapeAttr(item.id)}" tabindex="0">
-              <td data-label="Titulo"><strong>${escapeHtml(item.titulo || item.codigo)}</strong></td>
-              ${isPending || isHistory ? `<td data-label="Solicitante">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</td><td data-label="Departamento">${textOrDash(item.departamento?.nombre)}</td>` : ""}
+              <td data-label="Titulo" title="${escapeAttr(item.titulo || item.codigo)}"><strong class="cell-ellipsis">${escapeHtml(item.titulo || item.codigo)}</strong></td>
+              ${isPending || isHistory ? `<td data-label="Solicitante" title="${escapeAttr(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`.trim())}"><span class="cell-ellipsis">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</span></td><td data-label="Departamento" title="${escapeAttr(item.departamento?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.departamento?.nombre)}</span></td>` : ""}
               <td data-label="Estado"><span class="badge ${escapeAttr(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
-              <td data-label="Tipo">${textOrDash(item.tipo?.nombre)}</td>
+              <td data-label="Tipo" title="${escapeAttr(item.tipo?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.tipo?.nombre)}</span></td>
               <td data-label="Prioridad"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></td>
               <td data-label="Aprobadores">${approverSummary(data, item.id)}</td>
-              <td data-label="Fecha">${formatDate(item.created_at)}</td>
-              <td data-label="Actualizacion">${formatDate(item.updated_at)}</td>
+              <td data-label="Fecha"><span class="cell-ellipsis">${formatDateOnly(item.created_at)}</span></td>
+              <td data-label="Actualizacion"><span class="cell-ellipsis">${formatDateOnly(item.updated_at)}</span></td>
               <td data-label=""><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></td>
             </tr>
           `).join("") || `<tr><td data-label="" colspan="10">No hay resultados.</td></tr>`}
@@ -130,7 +136,7 @@ function approverSummary(data, solicitudId) {
     <div class="approval-summary">
       ${rows.map((row) => `
         <span class="approval-chip">
-          ${escapeHtml(profileName(data, row.usuario_id))}
+          <span class="approval-name">${escapeHtml(profileName(data, row.usuario_id))}</span>
           <span class="badge ${escapeAttr(row.estado.split(" ")[0])}">${escapeHtml(row.estado)}</span>
         </span>
       `).join("")}
