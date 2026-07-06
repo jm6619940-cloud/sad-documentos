@@ -1115,6 +1115,10 @@ tr:hover td {
 }
 
 @media (max-width: 860px) {
+  :root {
+    font-size: 14px;
+  }
+
   .login-view {
     grid-template-columns: 1fr;
     min-height: 100dvh;
@@ -1125,15 +1129,67 @@ tr:hover td {
     align-items: flex-start;
   }
 
-  .login-panel .input,
-  .login-panel .form-control {
+  .input,
+  select,
+  textarea,
+  .form-control,
+  .form-select {
     min-height: 48px;
     padding: 12px 14px;
     font-size: 16px;
   }
 
-  .login-panel .button {
+  textarea,
+  textarea.form-control {
+    min-height: 96px;
+  }
+
+  .button,
+  .button.btn {
+    min-height: 46px;
+    padding: 10px 14px;
+    font-size: 1rem;
+  }
+
+  .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form {
+    gap: 14px;
+  }
+
+  .field {
+    gap: 8px;
+  }
+
+  .form-check-input {
+    width: 1.15em;
+    height: 1.15em;
+    margin-top: 0.2em;
+  }
+
+  .approver-option,
+  .correction-file-option {
+    min-height: 64px;
+  }
+
+  .nav-button {
     min-height: 48px;
+    padding: 11px 12px;
+    font-size: 1rem;
+  }
+
+  .app-modal {
+    width: min(760px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .swal2-popup.swal-compact,
+  .swal2-popup {
+    width: min(94vw, 520px);
     font-size: 1rem;
   }
 
@@ -1196,6 +1252,10 @@ tr:hover td {
 }
 
 @media (max-width: 576px) {
+  :root {
+    font-size: 15px;
+  }
+
   .login-panel {
     min-height: 100vh;
     min-height: 100dvh;
@@ -1238,18 +1298,30 @@ tr:hover td {
     padding-inline: 12px;
   }
 
+  .topbar strong {
+    font-size: 1rem;
+  }
+
   .topbar-actions {
     gap: 6px;
   }
 
   .content {
-    padding: 16px 10px 32px;
+    padding: 16px 12px 32px;
     gap: 16px;
+  }
+
+  .page-title h1 {
+    font-size: 1.75rem;
+  }
+
+  .page-title p {
+    font-size: 1rem;
   }
 
   .panel,
   .app-modal-body {
-    padding: 12px;
+    padding: 14px;
   }
 
   #modal-root {
@@ -1314,7 +1386,9 @@ tr:hover td {
 
   .toolbar .button,
   .toolbar > select,
-  .toolbar > input {
+  .toolbar > input,
+  .toolbar > .form-select,
+  .toolbar > .form-control {
     width: 100%;
     max-width: none;
   }
@@ -1408,7 +1482,8 @@ tr:hover td {
 
   .app-modal {
     width: calc(100vw - 16px);
-    max-height: 86vh;
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
   }
 
   .app-modal-header h2 {
@@ -1424,7 +1499,11 @@ tr:hover td {
   }
 
   .file-actions {
-    justify-content: flex-start;
+    justify-content: stretch;
+  }
+
+  .file-actions .button {
+    width: 100%;
   }
 
   .approval-item {
@@ -1432,7 +1511,15 @@ tr:hover td {
   }
 
   .approval-state {
-    justify-items: start;
+    justify-items: stretch;
+  }
+
+  .correction-file-option {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .correction-file-option em {
+    grid-column: 2;
   }
 }
 
@@ -1469,7 +1556,7 @@ tr:hover td {
   }
 
   .icon-button {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
   }
 }
