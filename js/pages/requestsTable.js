@@ -3,7 +3,7 @@ import { formatDate, normalize } from "../utils/format.js";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260706-4";
+import { renderRequestDetail } from "./requestDetail.js?v=20260706-5";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {

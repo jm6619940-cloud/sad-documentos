@@ -1,8 +1,8 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260706-4";
-import { toast } from "../components/toast.js?v=20260706-4";
-import { closeModal } from "../components/modal.js?v=20260706-4";
+import { dataService } from "../services/dataService.js?v=20260706-5";
+import { toast } from "../components/toast.js?v=20260706-5";
+import { closeModal } from "../components/modal.js?v=20260706-5";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
@@ -34,6 +34,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
   const files = data.archivos.filter((file) => file.solicitud_id === solicitud.id);
   const comments = data.comentarios.filter((comment) => comment.solicitud_id === solicitud.id);
   const approvalRows = approvalsForRequest(data, solicitud.id);
+  const canDecide = canApprove(user, solicitud, data);
   const auditTrail = user.rol === ROLES.ADMIN
     ? (data.auditoria || []).filter((entry) => entry.solicitud_id === solicitud.id)
     : [];
@@ -139,10 +140,10 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
       <ul class="timeline">
         ${comments.length ? comments.map((comment) => `<li class="timeline-item"><strong>${escapeHtml(comment.usuario?.nombre || profileName(data, comment.usuario_id))}</strong><p>${escapeHtml(comment.comentario)}</p><small>${formatDate(comment.created_at)}</small></li>`).join("") : "<li class='empty-state'>Sin comentarios.</li>"}
       </ul>
-      <form class="form" data-comment-form>
+      ${canDecide ? "" : `<form class="form" data-comment-form>
         <label class="field"><span>Agregar comentario</span><textarea class="form-control" name="comentario" rows="2" required></textarea></label>
         <button class="button secondary btn btn-outline-secondary" type="submit">Agregar comentario</button>
-      </form>
+      </form>`}
     </section>
     ${user.rol === ROLES.ADMIN ? `
       <section class="grid">
@@ -161,7 +162,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
         </ul>
       </section>
     ` : ""}
-    ${canApprove(user, solicitud, data) ? `
+    ${canDecide ? `
       <section class="panel">
         <h3>Decision</h3>
         <form class="form" data-action-form>
@@ -209,7 +210,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     });
   });
 
-  view.querySelector("[data-comment-form]").addEventListener("submit", async (event) => {
+  view.querySelector("[data-comment-form]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     await dataService.addComment(solicitud.id, user.id, form.get("comentario"));
