@@ -453,6 +453,15 @@ tr:hover td {
   background: #fafcff;
 }
 
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:focus-visible td {
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+  outline-offset: -3px;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -561,6 +570,46 @@ tr:hover td {
   padding: 10px;
   background: white;
   overflow-wrap: anywhere;
+}
+
+.notification-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.notification-item.unread {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.clickable-notification {
+  cursor: pointer;
+}
+
+.clickable-notification:hover {
+  border-color: #9bb8e8;
+  background: #f4f8ff;
+}
+
+.clickable-notification:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+  outline-offset: 2px;
+}
+
+.notification-code {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.notification-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .detail-grid {

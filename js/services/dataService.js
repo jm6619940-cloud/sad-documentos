@@ -294,6 +294,18 @@ export const dataService = {
     if (error) throw error;
   },
 
+  async markNotificationRead(id, userId) {
+    const supabase = await getSupabase();
+    const { error } = await supabase.from("notificaciones").update({ leida: true }).eq("id", id).eq("usuario_id", userId);
+    if (error) throw error;
+  },
+
+  async clearNotifications(userId) {
+    const supabase = await getSupabase();
+    const { error } = await supabase.from("notificaciones").delete().eq("usuario_id", userId);
+    if (error) throw error;
+  },
+
   async signedUrl(path) {
     const supabase = await getSupabase();
     const { data, error } = await supabase.storage.from(APP_CONFIG.storageBucket).createSignedUrl(path, 300);

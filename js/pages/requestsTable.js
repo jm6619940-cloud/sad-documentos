@@ -3,7 +3,7 @@ import { formatDate, normalize } from "../utils/format.js";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260706-6";
+import { renderRequestDetail } from "./requestDetail.js?v=20260706-7";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
@@ -39,7 +39,7 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
       <table class="table table-hover align-middle">
         <thead>
           <tr>
-            <th>Codigo</th>
+            <th>Titulo</th>
             ${isPending || isHistory ? "<th>Solicitante</th><th>Departamento</th>" : ""}
             <th>Estado</th>
             <th>Tipo</th>
@@ -52,8 +52,8 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
         </thead>
         <tbody>
           ${rows.map((item) => `
-            <tr>
-              <td data-label="Codigo"><strong>${escapeHtml(item.codigo)}</strong></td>
+            <tr class="clickable-row" data-row-detail="${escapeAttr(item.id)}" tabindex="0">
+              <td data-label="Titulo"><strong>${escapeHtml(item.titulo || item.codigo)}</strong></td>
               ${isPending || isHistory ? `<td data-label="Solicitante">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</td><td data-label="Departamento">${textOrDash(item.departamento?.nombre)}</td>` : ""}
               <td data-label="Estado"><span class="badge ${escapeAttr(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
               <td data-label="Tipo">${textOrDash(item.tipo?.nombre)}</td>
@@ -69,10 +69,26 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
     `;
     page.querySelectorAll("[data-detail]").forEach((button) => {
       button.addEventListener("click", () => {
-        const solicitud = data.solicitudes.find((item) => item.id === button.dataset.detail);
-        openModal(renderRequestDetail({ solicitud, data, user, onChange: refresh }), { title: solicitud.codigo });
+        openDetail(button.dataset.detail);
       });
     });
+    page.querySelectorAll("[data-row-detail]").forEach((row) => {
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("button, a, input, select, textarea, label")) return;
+        openDetail(row.dataset.rowDetail);
+      });
+      row.addEventListener("keydown", (event) => {
+        if (!["Enter", " "].includes(event.key)) return;
+        event.preventDefault();
+        openDetail(row.dataset.rowDetail);
+      });
+    });
+  };
+
+  const openDetail = (id) => {
+    const solicitud = data.solicitudes.find((item) => item.id === id);
+    if (!solicitud) return;
+    openModal(renderRequestDetail({ solicitud, data, user, onChange: refresh }), { title: solicitud.codigo });
   };
 
   page.querySelectorAll("[data-filter]").forEach((input) => input.addEventListener("input", renderRows));

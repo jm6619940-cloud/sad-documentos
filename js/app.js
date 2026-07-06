@@ -1,14 +1,16 @@
-import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260706-6";
-import { openModal } from "./components/modal.js?v=20260706-6";
-import { toast } from "./components/toast.js?v=20260706-6";
-import { dataService } from "./services/dataService.js?v=20260706-6";
-import { renderDashboard } from "./pages/dashboard.js?v=20260706-6";
-import { renderNewRequest } from "./pages/newRequest.js?v=20260706-6";
-import { renderRequestsTable } from "./pages/requestsTable.js?v=20260706-6";
-import { renderUsers } from "./pages/users.js?v=20260706-6";
-import { renderCatalogs } from "./pages/catalogs.js?v=20260706-6";
-import { renderProfile } from "./pages/profile.js?v=20260706-6";
-import { renderNotifications } from "./pages/notifications.js?v=20260706-6";
+import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260706-7";
+import { closeModal, openModal } from "./components/modal.js?v=20260706-7";
+import { toast } from "./components/toast.js?v=20260706-7";
+import { dataService } from "./services/dataService.js?v=20260706-7";
+import { renderDashboard } from "./pages/dashboard.js?v=20260706-7";
+import { renderNewRequest } from "./pages/newRequest.js?v=20260706-7";
+import { renderRequestsTable } from "./pages/requestsTable.js?v=20260706-7";
+import { renderRequestDetail } from "./pages/requestDetail.js?v=20260706-7";
+import { renderUsers } from "./pages/users.js?v=20260706-7";
+import { renderCatalogs } from "./pages/catalogs.js?v=20260706-7";
+import { renderProfile } from "./pages/profile.js?v=20260706-7";
+import { renderNotifications } from "./pages/notifications.js?v=20260706-7";
+import { ROLES, STATUS } from "./utils/constants.js";
 
 const root = document.querySelector("#app");
 const state = {
@@ -35,29 +37,43 @@ function navigate(route) {
 }
 
 async function openNotificationsModal() {
-  const hasUnread = state.data?.notificaciones.some((item) => item.usuario_id === state.user.id && !item.leida);
+  openModal(renderNotifications({
+    user: state.user,
+    data: state.data,
+    refresh: refreshNotificationsModal,
+    openRequest: openRequestFromNotification
+  }), { title: "Notificaciones" });
+}
 
-  if (hasUnread) {
-    state.data = {
-      ...state.data,
-      notificaciones: state.data.notificaciones.map((item) => (
-        item.usuario_id === state.user.id ? { ...item, leida: true } : item
-      ))
-    };
-    render();
-  }
+async function refreshNotificationsModal() {
+  state.data = await dataService.listData();
+  render();
+  openNotificationsModal();
+}
 
-  openModal(renderNotifications({ user: state.user, data: state.data, refresh }), { title: "Notificaciones" });
-
-  if (!hasUnread) return;
-  try {
-    await dataService.markNotificationsRead(state.user.id);
-    state.data = await dataService.listData();
-    render();
-  } catch (error) {
-    toast(error.message || "No fue posible marcar las notificaciones como leidas.", "error");
+async function openRequestFromNotification(solicitudId) {
+  state.data = await dataService.listData();
+  const solicitud = state.data.solicitudes.find((item) => item.id === solicitudId);
+  if (!solicitud) {
+    toast("No fue posible encontrar la solicitud vinculada.", "error");
     await refresh();
+    return;
   }
+
+  closeModal();
+  state.route = routeForRequest(solicitud);
+  render();
+  openModal(renderRequestDetail({ solicitud, data: state.data, user: state.user, onChange: refresh }), { title: solicitud.codigo });
+}
+
+function routeForRequest(solicitud) {
+  const assignedToCurrentUser = state.data.solicitud_aprobadores.some((item) => (
+    item.solicitud_id === solicitud.id && item.usuario_id === state.user.id
+  ));
+
+  if (state.user.rol === ROLES.ADMIN) return solicitud.estado === STATUS.PENDING ? "pending" : "history";
+  if (state.user.rol === ROLES.APPROVER && assignedToCurrentUser) return solicitud.estado === STATUS.PENDING ? "pending" : "history";
+  return "my-requests";
 }
 
 async function login(event) {
