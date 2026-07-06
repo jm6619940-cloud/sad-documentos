@@ -1,9 +1,9 @@
 import { ROLES } from "../utils/constants.js";
-import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260706-12";
+import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260706-13";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260706-12";
+import { renderRequestDetail } from "./requestDetail.js?v=20260706-13";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
@@ -40,13 +40,13 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
       <div class="request-list ${gridClass}" role="table">
         <div class="request-grid request-header" role="row">
           <span role="columnheader">Titulo</span>
-          ${isPending || isHistory ? `<span role="columnheader">Solicitante</span><span role="columnheader">Departamento</span>` : ""}
+          ${isPending || isHistory ? `<span role="columnheader">Solicitante</span><span role="columnheader">Depto.</span>` : ""}
           <span role="columnheader">Estado</span>
           <span role="columnheader">Tipo</span>
           <span role="columnheader">Prioridad</span>
           <span role="columnheader">Aprobadores</span>
           <span role="columnheader">Fecha</span>
-          <span role="columnheader">Ultima actualizacion</span>
+          <span role="columnheader">Actualizacion</span>
           <span role="columnheader"></span>
         </div>
         <div class="request-list-body">
@@ -125,14 +125,15 @@ function approverSummary(data, solicitudId) {
     .filter((item) => item.solicitud_id === solicitudId)
     .sort((a, b) => a.orden - b.orden);
   if (!rows.length) return "<span class='text-muted'>Sin asignar</span>";
+  const first = rows[0];
+  const extra = rows.length - 1;
   return `
     <div class="approval-summary">
-      ${rows.map((row) => `
-        <span class="approval-chip">
-          <span class="approval-name">${escapeHtml(profileName(data, row.usuario_id))}</span>
-          <span class="badge ${escapeAttr(row.estado.split(" ")[0])}">${escapeHtml(row.estado)}</span>
-        </span>
-      `).join("")}
+      <span class="approval-chip" title="${escapeAttr(rows.map((row) => `${profileName(data, row.usuario_id)}: ${row.estado}`).join(" | "))}">
+        <span class="approval-name">${escapeHtml(profileName(data, first.usuario_id))}</span>
+        <span class="badge ${escapeAttr(first.estado.split(" ")[0])}">${escapeHtml(first.estado)}</span>
+      </span>
+      ${extra ? `<span class="approval-more">+${extra}</span>` : ""}
     </div>
   `;
 }

@@ -475,7 +475,7 @@ td {
 }
 
 .compact-date {
-  font-size: 0.86rem;
+  font-size: 0.82rem;
 }
 
 .request-list {
@@ -486,24 +486,24 @@ td {
 .request-grid {
   display: grid;
   grid-template-columns: var(--request-columns);
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   min-width: 0;
 }
 
 .request-grid-wide {
-  --request-columns: minmax(0, 2.8fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 0.85fr) minmax(0, 0.75fr) minmax(0, 0.75fr) minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr) 64px;
+  --request-columns: minmax(0, 2.1fr) minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(88px, 0.9fr) minmax(0, 0.75fr) minmax(70px, 0.7fr) minmax(0, 1.45fr) minmax(112px, 1.05fr) minmax(112px, 1.05fr) 64px;
 }
 
 .request-grid-own {
-  --request-columns: minmax(0, 3fr) minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 0.72fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 64px;
+  --request-columns: minmax(0, 2.35fr) minmax(88px, 0.85fr) minmax(0, 0.75fr) minmax(70px, 0.65fr) minmax(0, 1.45fr) minmax(112px, 1fr) minmax(112px, 1fr) 64px;
 }
 
 .request-header {
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -845,6 +845,7 @@ tr:hover td {
   display: flex;
   flex-wrap: nowrap;
   gap: 5px;
+  align-items: center;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -867,6 +868,13 @@ tr:hover td {
 
 .approval-chip .badge {
   flex: 0 0 auto;
+}
+
+.approval-more {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .audit-item {

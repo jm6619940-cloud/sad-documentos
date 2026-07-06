@@ -15,13 +15,15 @@ export function formatDateOnly(value) {
 
 export function formatDateTimeCompact(value) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("es-DO", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
+  const date = new Date(value);
+  const day = new Intl.DateTimeFormat("es-DO", { day: "numeric" }).format(date);
+  const month = new Intl.DateTimeFormat("es-DO", { month: "short" }).format(date).replace(".", "");
+  const year = new Intl.DateTimeFormat("es-DO", { year: "2-digit" }).format(date);
+  const time = new Intl.DateTimeFormat("es-DO", {
     hour: "numeric",
     minute: "2-digit"
-  }).format(new Date(value));
+  }).format(date).replace(/\s+/g, " ");
+  return `${day} ${month} ${year}, ${time}`;
 }
 
 export function formatBytes(bytes = 0) {
