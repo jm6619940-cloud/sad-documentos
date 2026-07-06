@@ -1504,6 +1504,17 @@ tr:hover td {
     overflow: visible;
   }
 
+  .request-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  .request-table colgroup {
+    display: none;
+  }
+
   table,
   table.table {
     min-width: 0;
@@ -1522,6 +1533,10 @@ tr:hover td {
     width: 100%;
   }
 
+  .request-table tbody {
+    width: 100%;
+  }
+
   table tr {
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -1533,6 +1548,10 @@ tr:hover td {
   table td {
     border-bottom: 1px solid var(--line);
     padding: 10px 12px;
+  }
+
+  .request-table td {
+    max-width: 100%;
   }
 
   table td:last-child {

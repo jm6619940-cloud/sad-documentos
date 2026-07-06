@@ -1,6 +1,6 @@
 import { formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260706-8";
-import { toast } from "../components/toast.js?v=20260706-8";
+import { dataService } from "../services/dataService.js?v=20260706-9";
+import { toast } from "../components/toast.js?v=20260706-9";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";
 
