@@ -1,9 +1,9 @@
 import { ROLES } from "../utils/constants.js";
-import { formatDateOnly, normalize } from "../utils/format.js?v=20260706-9";
+import { formatDateOnly, normalize } from "../utils/format.js?v=20260706-10";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260706-9";
+import { renderRequestDetail } from "./requestDetail.js?v=20260706-10";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
@@ -36,8 +36,8 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
     const filters = Object.fromEntries([...page.querySelectorAll("[data-filter]")].map((input) => [input.dataset.filter, input.value]));
     const rows = filteredRows({ mode, user, data, filters });
     const tableColumns = isPending || isHistory
-      ? [21, 10, 11, 8, 8, 7, 14, 7, 7, 7]
-      : [30, 10, 10, 8, 18, 8, 8, 8];
+      ? [24, 10, 10, 8, 7, 7, 16, 7, 7, 4]
+      : [34, 10, 9, 7, 20, 8, 8, 4];
     page.querySelector("[data-table]").innerHTML = `
       <table class="table table-hover align-middle request-table">
         <colgroup>

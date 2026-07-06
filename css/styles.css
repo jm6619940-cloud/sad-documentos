@@ -422,7 +422,7 @@ td .button {
 }
 
 .table-wrap {
-  overflow-x: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
 }
@@ -435,7 +435,7 @@ table {
 
 .request-table {
   table-layout: fixed;
-  min-width: 1120px;
+  min-width: 0;
 }
 
 th,
@@ -478,7 +478,7 @@ th {
   color: var(--muted);
   font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 tr:hover td {
