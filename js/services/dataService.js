@@ -1,6 +1,5 @@
 import { APP_CONFIG } from "../config.js";
 import { getSupabase } from "./supabaseClient.js";
-import { STATUS } from "../utils/constants.js";
 import { getExtension, validateFiles } from "../utils/validators.js";
 
 function stripPassword(values) {
@@ -87,14 +86,14 @@ async function uploadRequestFiles(supabase, solicitudId, files) {
       contentType
     });
     if (upload.error) throw upload.error;
-    const insert = await supabase.from("archivos").insert({
-      solicitud_id: solicitudId,
-      nombre_original: file.name,
-      nombre_storage: path.split("/").pop(),
-      mime_type: contentType,
-      extension,
-      tamano: file.size,
-      ruta_storage: path
+    const insert = await supabase.rpc("registrar_archivo_solicitud", {
+      p_solicitud_id: solicitudId,
+      p_nombre_original: file.name,
+      p_nombre_storage: path.split("/").pop(),
+      p_mime_type: contentType,
+      p_extension: extension,
+      p_tamano: file.size,
+      p_ruta_storage: path
     });
     if (insert.error) throw insert.error;
   }
@@ -224,47 +223,13 @@ export const dataService = {
   },
 
   async actOnRequest(solicitudId, user, action, comentario) {
-    const statusByAction = {
-      aprobar: STATUS.APPROVED,
-      rechazar: STATUS.REJECTED,
-      correccion: STATUS.CORRECTION
-    };
     const supabase = await getSupabase();
-    const estado = statusByAction[action];
-    if (!estado) throw new Error("Accion no permitida.");
-    const now = new Date().toISOString();
-    const assigned = await supabase
-      .from("solicitud_aprobadores")
-      .update({ estado, comentario, fecha_accion: now })
-      .eq("solicitud_id", solicitudId)
-      .eq("usuario_id", user.id);
-    if (assigned.error) throw assigned.error;
-
-    let finalStatus = null;
-    if (estado === STATUS.REJECTED || estado === STATUS.CORRECTION) {
-      finalStatus = estado;
-    } else {
-      const approvals = await supabase
-        .from("solicitud_aprobadores")
-        .select("estado")
-        .eq("solicitud_id", solicitudId);
-      if (approvals.error) throw approvals.error;
-      if (approvals.data.length && approvals.data.every((item) => item.estado === STATUS.APPROVED)) {
-        finalStatus = STATUS.APPROVED;
-      }
-    }
-
-    if (!finalStatus) {
-      await this.audit(user.id, solicitudId, action.toUpperCase(), "Aprobacion individual registrada.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("solicitudes")
-      .update({ estado: finalStatus, aprobado_por: user.id, fecha_aprobacion: now, comentario_aprobacion: comentario || "" })
-      .eq("id", solicitudId);
+    const { error } = await supabase.rpc("actuar_solicitud", {
+      p_id: solicitudId,
+      p_accion: action,
+      p_comentario: cleanText(comentario)
+    });
     if (error) throw error;
-    await this.audit(user.id, solicitudId, action.toUpperCase(), `Solicitud marcada como ${finalStatus}.`);
   },
 
   async upsertCatalog(table, values) {
@@ -315,6 +280,11 @@ export const dataService = {
 
   async audit(usuarioId, solicitudId, accion, descripcion) {
     const supabase = await getSupabase();
-    await supabase.from("auditoria").insert({ usuario_id: usuarioId, solicitud_id: solicitudId, accion, descripcion, user_agent: navigator.userAgent });
+    const { error } = await supabase.rpc("registrar_auditoria", {
+      p_solicitud_id: solicitudId,
+      p_accion: accion,
+      p_descripcion: descripcion
+    });
+    if (error) console.warn("No se pudo registrar auditoria.", error);
   }
 };
