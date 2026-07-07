@@ -1,9 +1,9 @@
 import { ROLES } from "../utils/constants.js";
-import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260707-1";
+import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260707-2";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260707-1";
+import { renderRequestDetail } from "./requestDetail.js?v=20260707-2";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
@@ -52,14 +52,14 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
         <div class="request-list-body">
           ${rows.map((item) => `
             <div class="request-grid request-row clickable-row" data-row-detail="${escapeAttr(item.id)}" role="row" tabindex="0">
-              <div class="request-cell" data-label="Titulo" role="cell" title="${escapeAttr(item.titulo || item.codigo)}"><strong class="cell-ellipsis">${escapeHtml(item.titulo || item.codigo)}</strong></div>
-              ${isPending || isHistory ? `<div class="request-cell" data-label="Solicitante" role="cell" title="${escapeAttr(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`.trim())}"><span class="cell-ellipsis">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</span></div><div class="request-cell" data-label="Departamento" role="cell" title="${escapeAttr(item.departamento?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.departamento?.nombre)}</span></div>` : ""}
-              <div class="request-cell" data-label="Estado" role="cell"><span class="badge ${escapeAttr(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></div>
-              <div class="request-cell" data-label="Tipo" role="cell" title="${escapeAttr(item.tipo?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.tipo?.nombre)}</span></div>
-              <div class="request-cell" data-label="Prioridad" role="cell"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></div>
-              <div class="request-cell" data-label="Aprobadores" role="cell">${approverSummary(data, item.id)}</div>
-              <div class="request-cell" data-label="Fecha" role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.created_at)}</span></div>
-              <div class="request-cell" data-label="Actualizacion" role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.updated_at)}</span></div>
+              <div class="request-cell request-cell-title" data-label="Titulo" role="cell" title="${escapeAttr(item.titulo || item.codigo)}"><strong class="cell-ellipsis">${escapeHtml(item.titulo || item.codigo)}</strong></div>
+              ${isPending || isHistory ? `<div class="request-cell request-cell-person" data-label="Solicitante" role="cell" title="${escapeAttr(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`.trim())}"><span class="cell-ellipsis">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</span></div><div class="request-cell request-cell-department" data-label="Departamento" role="cell" title="${escapeAttr(item.departamento?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.departamento?.nombre)}</span></div>` : ""}
+              <div class="request-cell request-cell-status" data-label="Estado" role="cell"><span class="badge ${escapeAttr(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></div>
+              <div class="request-cell request-cell-type" data-label="Tipo" role="cell" title="${escapeAttr(item.tipo?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.tipo?.nombre)}</span></div>
+              <div class="request-cell request-cell-priority" data-label="Prioridad" role="cell"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></div>
+              <div class="request-cell request-cell-approvers" data-label="Aprobadores" role="cell">${approverSummary(data, item.id)}</div>
+              <div class="request-cell request-cell-date" data-label="Fecha" role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.created_at)}</span></div>
+              <div class="request-cell request-cell-date" data-label="Actualizacion" role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.updated_at)}</span></div>
               <div class="request-cell request-actions" data-label="" role="cell"><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></div>
             </div>
           `).join("") || `<div class="empty-state">No hay resultados.</div>`}

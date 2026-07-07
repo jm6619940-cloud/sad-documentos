@@ -14,6 +14,7 @@
   --shadow: 0 12px 28px rgba(25, 36, 55, 0.08);
   --radius: 8px;
   --sidebar: 236px;
+  --content-max: 1680px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
 }
@@ -182,6 +183,7 @@ textarea:focus {
   color: white;
   background: var(--primary);
   transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  white-space: nowrap;
 }
 
 .button.btn {
@@ -332,7 +334,9 @@ textarea:focus {
 }
 
 .content {
-  padding: 18px clamp(14px, 2.5vw, 24px) 32px;
+  width: min(100%, var(--content-max));
+  margin-inline: auto;
+  padding: 18px clamp(14px, 2.5vw, 26px) 32px;
   display: grid;
   gap: 16px;
   min-width: 0;
@@ -395,6 +399,18 @@ textarea:focus {
   margin-bottom: 10px;
 }
 
+.panel-header > .toolbar {
+  margin-left: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 220px));
+  align-items: center;
+}
+
+.panel-header > .toolbar > * {
+  width: 100%;
+  max-width: none;
+}
+
 .panel-header h2,
 .panel-header h3,
 .request-detail h3 {
@@ -430,7 +446,8 @@ td .button {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 640px;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 .request-table {
@@ -440,11 +457,15 @@ table {
 
 th,
 td {
-  padding: 7px 9px;
+  padding: 9px 10px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: middle;
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .request-table th,
@@ -475,7 +496,8 @@ td {
 }
 
 .compact-date {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+  line-height: 1.25;
 }
 
 .request-list {
@@ -486,31 +508,32 @@ td {
 .request-grid {
   display: grid;
   grid-template-columns: var(--request-columns);
-  gap: 12px;
-  align-items: start;
+  column-gap: clamp(8px, 0.8vw, 14px);
+  align-items: center;
   min-width: 0;
 }
 
 .request-grid-wide {
-  --request-columns: minmax(0, 2.1fr) minmax(0, 0.95fr) minmax(0, 0.95fr) minmax(88px, 0.9fr) minmax(0, 0.75fr) minmax(70px, 0.7fr) minmax(0, 1.45fr) minmax(112px, 1.05fr) minmax(112px, 1.05fr) 64px;
+  --request-columns: minmax(126px, 1.4fr) minmax(78px, 0.72fr) minmax(96px, 0.78fr) minmax(88px, max-content) minmax(62px, 0.52fr) minmax(64px, max-content) minmax(136px, 1.18fr) minmax(112px, 0.88fr) minmax(112px, 0.88fr) 72px;
 }
 
 .request-grid-own {
-  --request-columns: minmax(0, 2.35fr) minmax(88px, 0.85fr) minmax(0, 0.75fr) minmax(70px, 0.65fr) minmax(0, 1.45fr) minmax(112px, 1fr) minmax(112px, 1fr) 64px;
+  --request-columns: minmax(150px, 1.8fr) minmax(88px, max-content) minmax(62px, 0.62fr) minmax(64px, max-content) minmax(150px, 1.28fr) minmax(118px, 0.9fr) minmax(118px, 0.9fr) 72px;
 }
 
 .request-header {
-  padding: 8px 0;
+  padding: 8px 0 10px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 
 .request-row {
-  padding: 9px 0;
+  min-height: 52px;
+  padding: 8px 0;
   border-bottom: 1px solid var(--line);
 }
 
@@ -527,23 +550,42 @@ td {
 .request-header span {
   min-width: 0;
   max-width: 100%;
-  overflow: visible;
-  overflow-wrap: anywhere;
-  text-overflow: clip;
-  white-space: normal;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .request-list .cell-ellipsis,
 .request-list .approval-name {
-  display: inline;
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .request-actions {
   overflow: visible;
   justify-self: end;
+}
+
+.request-actions .button {
+  width: 64px;
+  min-width: 64px;
+  padding-inline: 8px;
+}
+
+.request-cell-title {
+  font-weight: 800;
+}
+
+.request-cell-status,
+.request-cell-priority {
+  overflow: visible;
+}
+
+.request-cell-approvers {
+  overflow: hidden;
 }
 
 th {
@@ -853,30 +895,31 @@ tr:hover td {
 .approval-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
   align-items: center;
   min-width: 0;
   max-width: 100%;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .approval-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   max-width: 100%;
-  padding: 3px 5px;
+  padding: 3px 6px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fbfcfe;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   min-width: 0;
-  overflow: visible;
-  white-space: normal;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .approval-chip .badge {
   flex: 0 0 auto;
+  padding-inline: 7px;
 }
 
 .approval-more {
@@ -1283,6 +1326,140 @@ tr:hover td {
   .content {
     padding-inline: 24px;
   }
+
+  .request-grid-wide {
+    --request-columns: minmax(118px, 1.22fr) minmax(76px, 0.68fr) minmax(92px, 0.72fr) minmax(84px, max-content) minmax(58px, 0.48fr) minmax(62px, max-content) minmax(118px, 1fr) minmax(100px, 0.75fr) minmax(100px, 0.75fr) 66px;
+  }
+
+  .request-grid-own {
+    --request-columns: minmax(138px, 1.5fr) minmax(84px, max-content) minmax(58px, 0.5fr) minmax(62px, max-content) minmax(124px, 1fr) minmax(104px, 0.75fr) minmax(104px, 0.75fr) 66px;
+  }
+
+  .request-grid {
+    column-gap: 8px;
+  }
+
+  .request-header {
+    font-size: 0.62rem;
+  }
+
+  .request-cell,
+  .compact-date,
+  .approval-chip {
+    font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 992px) {
+  .panel-header > .toolbar {
+    width: 100%;
+    margin-left: 0;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .request-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .request-header {
+    display: none;
+  }
+
+  .request-list-body {
+    display: grid;
+    gap: 12px;
+  }
+
+  .request-grid {
+    display: block;
+  }
+
+  .request-row {
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 8px 18px rgba(25, 36, 55, 0.06);
+    overflow: hidden;
+  }
+
+  .request-row:hover {
+    background: var(--surface);
+    border-color: #c8d6e8;
+  }
+
+  .request-cell {
+    display: grid;
+    grid-template-columns: 128px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .request-cell:last-child {
+    border-bottom: 0;
+  }
+
+  .request-cell::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .request-cell[data-label=""]::before {
+    display: none;
+  }
+
+  .request-cell-title {
+    grid-template-columns: 1fr;
+    align-items: start;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .request-cell-title::before {
+    margin-bottom: 2px;
+  }
+
+  .request-list .cell-ellipsis,
+  .request-list .approval-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .request-cell-date .cell-ellipsis {
+    white-space: nowrap;
+  }
+
+  .approval-summary {
+    overflow: visible;
+  }
+
+  .approval-chip {
+    max-width: 100%;
+  }
+
+  .request-actions {
+    display: block;
+    justify-self: stretch;
+    padding: 10px 12px;
+  }
+
+  .request-actions .button {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 860px) {
@@ -1419,6 +1596,95 @@ tr:hover td {
 
   .toolbar > * {
     max-width: none;
+  }
+
+  .content {
+    padding-inline: 16px;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 860px) {
+  .panel-header > .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .table-wrap {
+    overflow: visible;
+  }
+
+  table,
+  table.table {
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0 12px;
+    table-layout: auto;
+  }
+
+  table thead {
+    display: none;
+  }
+
+  table tbody,
+  table tr,
+  table td {
+    display: block;
+    width: 100%;
+  }
+
+  table tr {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 8px 18px rgba(25, 36, 55, 0.06);
+    overflow: hidden;
+  }
+
+  table td {
+    border-bottom: 1px solid var(--line);
+    padding: 10px 12px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  table td:last-child {
+    border-bottom: 0;
+  }
+
+  table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  table td:empty {
+    display: none;
+  }
+
+  table td[data-label=""]::before {
+    display: none;
+  }
+
+  td.toolbar {
+    display: flex;
+    gap: 8px;
+  }
+
+  td.toolbar .button {
+    flex: 1 1 auto;
+  }
+
+  table td[data-label=""] .button {
+    width: 100%;
   }
 }
 
