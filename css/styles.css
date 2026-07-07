@@ -438,9 +438,15 @@ td .button {
 }
 
 .table-wrap {
-  overflow-x: hidden;
+  overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
+  scrollbar-gutter: stable;
+}
+
+.table-wrap > table,
+.table-wrap > .request-list {
+  min-width: max-content;
 }
 
 table {
@@ -1362,6 +1368,10 @@ tr:hover td {
     gap: 12px;
   }
 
+  .table-wrap > .request-list {
+    min-width: 0;
+  }
+
   .request-header {
     display: none;
   }
@@ -1622,6 +1632,10 @@ tr:hover td {
     border-collapse: separate;
     border-spacing: 0 12px;
     table-layout: auto;
+  }
+
+  .table-wrap > table {
+    min-width: 0;
   }
 
   table thead {
