@@ -1,5 +1,5 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260708-3";
+import { dataService } from "./dataService.js?v=20260708-4";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
@@ -82,6 +82,37 @@ export function showBrowserNotification(notification, options = {}) {
   };
 
   return browserNotification;
+}
+
+export async function showServiceWorkerNotification(notification, options = {}) {
+  const state = browserNotificationState();
+  if (state !== "granted") {
+    throw new Error("Las notificaciones no estan permitidas en este navegador.");
+  }
+
+  const title = notification?.titulo || options.title || "SAD";
+  const body = notificationBody(notification) || options.body || "Tienes una nueva notificacion.";
+
+  if (!("serviceWorker" in navigator)) {
+    const fallback = showBrowserNotification(notification, options);
+    if (!fallback) throw new Error("Este navegador no pudo mostrar la notificacion.");
+    return fallback;
+  }
+
+  await navigator.serviceWorker.register(SERVICE_WORKER_URL);
+  const registration = await navigator.serviceWorker.ready;
+  await registration.showNotification(title, {
+    body,
+    icon: ICON_URL,
+    badge: ICON_URL,
+    tag: notification?.id ? `sad-${notification.id}` : `sad-test-${Date.now()}`,
+    renotify: Boolean(notification?.id),
+    data: {
+      notificationId: notification?.id || "",
+      url: options.url || "./"
+    }
+  });
+  return true;
 }
 
 export function seedBrowserNotifications(data, user) {

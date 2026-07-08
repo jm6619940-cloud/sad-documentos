@@ -1,7 +1,7 @@
 import { formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260708-3";
-import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showBrowserNotification } from "../services/browserNotifications.js?v=20260708-3";
-import { toast } from "../components/toast.js?v=20260708-3";
+import { dataService } from "../services/dataService.js?v=20260708-4";
+import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showServiceWorkerNotification } from "../services/browserNotifications.js?v=20260708-4";
+import { toast } from "../components/toast.js?v=20260708-4";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";
 
@@ -66,7 +66,7 @@ export function renderNotifications({ user, data, refresh, openRequest }) {
         await refresh();
         return;
       }
-      showBrowserNotification({
+      await showServiceWorkerNotification({
         titulo: "Notificaciones activadas",
         mensaje: "SAD ya puede avisarte cuando llegue una nueva solicitud o actualizacion."
       });
@@ -76,12 +76,16 @@ export function renderNotifications({ user, data, refresh, openRequest }) {
       toast(error.message || "No fue posible activar las notificaciones.", "error");
     }
   });
-  view.querySelector("[data-test-browser-notification]")?.addEventListener("click", () => {
-    showBrowserNotification({
-      titulo: "SAD",
-      mensaje: "Esta es una notificacion de prueba del navegador."
-    });
-    toast("Notificacion de prueba enviada.", "success");
+  view.querySelector("[data-test-browser-notification]")?.addEventListener("click", async () => {
+    try {
+      await showServiceWorkerNotification({
+        titulo: "SAD",
+        mensaje: "Esta es una notificacion de prueba del navegador."
+      });
+      toast("Notificacion de prueba enviada.", "success");
+    } catch (error) {
+      toast(error.message || "No fue posible mostrar la notificacion de prueba.", "error");
+    }
   });
   view.querySelectorAll("[data-notification]").forEach((item) => {
     const open = async () => {
