@@ -10,6 +10,8 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
   const isPending = mode === "pending";
   const isHistory = mode === "history";
   const usePriorityFilter = isPending && user.rol === ROLES.APPROVER;
+  let currentPage = 1;
+  let pageSize = 15;
   const page = document.createElement("div");
   page.className = "grid";
   page.append(pageTitle(
@@ -28,6 +30,18 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
           <select class="form-select" data-filter="tipo"><option value="">Tipo</option>${data.tipos_documento.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.nombre)}</option>`).join("")}</select>
         </div>
       </div>
+      <div class="table-controls">
+        <label class="page-size-control">
+          <span>Mostrar</span>
+          <select class="form-select" data-page-size>
+            <option value="15" selected>15</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="all">Todas</option>
+          </select>
+        </label>
+      </div>
       <div class="table-wrap" data-table></div>
     </section>
   `);
@@ -35,6 +49,11 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
   const renderRows = () => {
     const filters = Object.fromEntries([...page.querySelectorAll("[data-filter]")].map((input) => [input.dataset.filter, input.value]));
     const rows = filteredRows({ mode, user, data, filters });
+    const totalPages = pageSize === "all" ? 1 : Math.max(1, Math.ceil(rows.length / pageSize));
+    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const visibleRows = pageSize === "all"
+      ? rows
+      : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     const gridClass = isPending || isHistory ? "request-grid-wide" : "request-grid-own";
     page.querySelector("[data-table]").innerHTML = `
       <div class="request-list ${gridClass}" role="table">
@@ -50,7 +69,7 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
           <span role="columnheader"></span>
         </div>
         <div class="request-list-body">
-          ${rows.map((item) => `
+          ${visibleRows.map((item) => `
             <div class="request-grid request-row clickable-row" data-row-detail="${escapeAttr(item.id)}" role="row" tabindex="0">
               <div class="request-cell request-cell-title" data-label="Titulo" role="cell" title="${escapeAttr(item.titulo || item.codigo)}"><strong class="cell-ellipsis">${escapeHtml(item.titulo || item.codigo)}</strong></div>
               ${isPending || isHistory ? `<div class="request-cell request-cell-person" data-label="Solicitante" role="cell" title="${escapeAttr(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`.trim())}"><span class="cell-ellipsis">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</span></div><div class="request-cell request-cell-department" data-label="Departamento" role="cell" title="${escapeAttr(item.departamento?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.departamento?.nombre)}</span></div>` : ""}
@@ -65,6 +84,7 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
           `).join("") || `<div class="empty-state">No hay resultados.</div>`}
         </div>
       </div>
+      ${paginationMarkup(rows.length, visibleRows.length, currentPage, totalPages, pageSize)}
     `;
     page.querySelectorAll("[data-detail]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -82,6 +102,20 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
         openDetail(row.dataset.rowDetail);
       });
     });
+    page.querySelectorAll("[data-page]").forEach((button) => {
+      button.addEventListener("click", () => {
+        currentPage = Number(button.dataset.page);
+        renderRows();
+      });
+    });
+    page.querySelector("[data-page-prev]")?.addEventListener("click", () => {
+      currentPage -= 1;
+      renderRows();
+    });
+    page.querySelector("[data-page-next]")?.addEventListener("click", () => {
+      currentPage += 1;
+      renderRows();
+    });
   };
 
   const openDetail = (id) => {
@@ -90,7 +124,15 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
     openModal(renderRequestDetail({ solicitud, data, user, onChange: refresh }), { title: solicitud.codigo });
   };
 
-  page.querySelectorAll("[data-filter]").forEach((input) => input.addEventListener("input", renderRows));
+  page.querySelectorAll("[data-filter]").forEach((input) => input.addEventListener("input", () => {
+    currentPage = 1;
+    renderRows();
+  }));
+  page.querySelector("[data-page-size]").addEventListener("change", (event) => {
+    pageSize = event.target.value === "all" ? "all" : Number(event.target.value);
+    currentPage = 1;
+    renderRows();
+  });
   renderRows();
   return page;
 }
@@ -148,4 +190,40 @@ function unique(items) {
 
 function option(value) {
   return `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`;
+}
+
+function paginationMarkup(totalRows, visibleRows, currentPage, totalPages, pageSize) {
+  const start = totalRows === 0 || pageSize === "all" ? (totalRows ? 1 : 0) : ((currentPage - 1) * pageSize) + 1;
+  const end = pageSize === "all" ? totalRows : Math.min(totalRows, start + visibleRows - 1);
+  const pages = paginationPages(currentPage, totalPages);
+  return `
+    <div class="pagination-bar">
+      <span class="pagination-summary">${escapeHtml(summaryText(start, end, totalRows))}</span>
+      <div class="pagination-actions" aria-label="Paginacion">
+        <button class="icon-button pagination-button" type="button" data-page-prev ${currentPage <= 1 ? "disabled" : ""} aria-label="Pagina anterior">${icon("chevronLeft")}</button>
+        ${pages.map((page) => page === "gap"
+          ? `<span class="pagination-gap">...</span>`
+          : `<button class="pagination-page ${page === currentPage ? "active" : ""}" type="button" data-page="${page}" ${page === currentPage ? "aria-current=\"page\"" : ""}>${page}</button>`
+        ).join("")}
+        <button class="icon-button pagination-button" type="button" data-page-next ${currentPage >= totalPages ? "disabled" : ""} aria-label="Pagina siguiente">${icon("chevronRight")}</button>
+      </div>
+    </div>
+  `;
+}
+
+function paginationPages(currentPage, totalPages) {
+  if (totalPages <= 1) return [1];
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+  const pages = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1]);
+  const sorted = [...pages]
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
+  return sorted.flatMap((page, index) => (
+    index > 0 && page - sorted[index - 1] > 1 ? ["gap", page] : [page]
+  ));
+}
+
+function summaryText(start, end, totalRows) {
+  if (!totalRows) return "0 solicitudes";
+  return `${start}-${end} de ${totalRows} solicitudes`;
 }

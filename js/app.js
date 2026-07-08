@@ -1,28 +1,31 @@
-import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260708-12";
+import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260708-14";
 import { closeModal, openModal } from "./components/modal.js?v=20260708-12";
 import { toast } from "./components/toast.js?v=20260708-12";
 import { dataService } from "./services/dataService.js?v=20260708-12";
 import { renderDashboard } from "./pages/dashboard.js?v=20260708-12";
 import { renderNewRequest } from "./pages/newRequest.js?v=20260708-12";
-import { renderRequestsTable } from "./pages/requestsTable.js?v=20260708-12";
+import { renderRequestsTable } from "./pages/requestsTable.js?v=20260708-14";
 import { renderRequestDetail } from "./pages/requestDetail.js?v=20260708-12";
 import { renderUsers } from "./pages/users.js?v=20260708-12";
 import { renderCatalogs } from "./pages/catalogs.js?v=20260708-12";
 import { renderProfile } from "./pages/profile.js?v=20260708-12";
-import { renderNotifications } from "./pages/notifications.js?v=20260708-12";
-import { startBrowserNotificationStream, stopBrowserNotificationStream } from "./services/browserNotifications.js?v=20260708-13";
+import { renderNotifications } from "./pages/notifications.js?v=20260708-14";
+import { startBrowserNotificationStream, stopBrowserNotificationStream } from "./services/browserNotifications.js?v=20260708-14";
 import { ROLES, STATUS } from "./utils/constants.js";
 
 const root = document.querySelector("#app");
+const THEME_KEY = "sad-theme";
 const state = {
   user: null,
   data: null,
-  route: "dashboard"
+  route: "dashboard",
+  theme: initialTheme()
 };
 let suppressAuthSyncUntil = 0;
 let syncingAuthState = false;
 
 async function init() {
+  applyTheme(state.theme);
   await watchAuthState();
   state.user = await dataService.getCurrentUser();
   if (state.user) state.data = await dataService.listData();
@@ -40,6 +43,24 @@ async function refresh() {
 
 function navigate(route) {
   state.route = route;
+  render();
+}
+
+function initialTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (["light", "dark"].includes(saved)) return saved;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  document.querySelector("meta[name='theme-color']")?.setAttribute("content", theme === "dark" ? "#0f172a" : "#2563eb");
+}
+
+function toggleTheme() {
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, state.theme);
+  applyTheme(state.theme);
   render();
 }
 
@@ -201,7 +222,7 @@ async function syncBrowserNotifications() {
 function render() {
   root.innerHTML = "";
   if (!state.user) {
-    root.append(renderLoginShell(login));
+    root.append(renderLoginShell(login, { theme: state.theme, toggleTheme }));
     return;
   }
   const shell = renderAppShell({
@@ -210,7 +231,9 @@ function render() {
     data: state.data,
     navigate,
     logout,
-    openNotifications: openNotificationsModal
+    openNotifications: openNotificationsModal,
+    theme: state.theme,
+    toggleTheme
   });
   root.append(shell);
   const outlet = shell.querySelector("[data-page]");

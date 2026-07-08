@@ -3,12 +3,13 @@ import { initials } from "../utils/format.js";
 import { escapeHtml } from "../utils/security.js";
 import { icon } from "./icons.js";
 
-export function renderLoginShell(onSubmit) {
+export function renderLoginShell(onSubmit, { theme = "light", toggleTheme } = {}) {
   const root = document.createElement("main");
   root.className = "login-view container-fluid p-0";
   root.innerHTML = `
     <section class="login-panel">
-      <div class="brand"><span class="brand-mark">SAD</span><span>Sistema de Autorizacion</span></div>
+      <button class="icon-button theme-toggle login-theme-toggle" type="button" data-theme-toggle aria-label="Cambiar tema">${icon(theme === "dark" ? "sun" : "moon")}</button>
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>Sistema de Autorizacion</span></div>
       <p class="eyebrow">Gestion documental interna</p>
       <h1>Autoriza documentos con orden, trazabilidad y control.</h1>
       <p>Ingresa con tu cuenta autorizada.</p>
@@ -33,10 +34,11 @@ export function renderLoginShell(onSubmit) {
     </section>
   `;
   root.querySelector("[data-login-form]").addEventListener("submit", onSubmit);
+  root.querySelector("[data-theme-toggle]").addEventListener("click", toggleTheme);
   return root;
 }
 
-export function renderAppShell({ user, route, data, navigate, logout, openNotifications }) {
+export function renderAppShell({ user, route, data, navigate, logout, openNotifications, theme = "light", toggleTheme }) {
   const unread = data.notificaciones.filter((item) => item.usuario_id === user.id && !item.leida).length;
   const shell = document.createElement("div");
   shell.className = "layout container-fluid p-0";
@@ -44,7 +46,7 @@ export function renderAppShell({ user, route, data, navigate, logout, openNotifi
     <button class="sidebar-backdrop" type="button" data-menu-backdrop aria-label="Cerrar menu"></button>
     <aside class="sidebar" data-sidebar>
       <div class="sidebar-header">
-        <div class="brand"><span class="brand-mark">SAD</span><span>Autorizacion</span></div>
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>Autorizacion</span></div>
         <button class="icon-button sidebar-close" type="button" data-menu-close aria-label="Cerrar menu">${icon("x")}</button>
       </div>
       <nav class="nav" aria-label="Navegacion principal">
@@ -62,6 +64,7 @@ export function renderAppShell({ user, route, data, navigate, logout, openNotifi
           <strong>SAD</strong>
         </div>
         <div class="topbar-actions">
+          <button class="icon-button theme-toggle" type="button" data-theme-toggle aria-label="Cambiar tema">${icon(theme === "dark" ? "sun" : "moon")}</button>
           <button class="icon-button" data-notifications aria-label="Notificaciones">${icon("bell")}${unread ? `<span class="badge Rechazado">${unread}</span>` : ""}</button>
           <div class="avatar" title="${escapeHtml(`${user.nombre} ${user.apellido}`)}">${escapeHtml(initials(user))}</div>
           <button class="icon-button" data-logout aria-label="Cerrar sesion">${icon("logout")}</button>
@@ -87,6 +90,7 @@ export function renderAppShell({ user, route, data, navigate, logout, openNotifi
   });
   shell.querySelector("[data-logout]").addEventListener("click", logout);
   shell.querySelector("[data-notifications]").addEventListener("click", openNotifications);
+  shell.querySelector("[data-theme-toggle]").addEventListener("click", toggleTheme);
   shell.querySelector("[data-menu]").addEventListener("click", toggleMenu);
   shell.querySelector("[data-menu-close]").addEventListener("click", closeMenu);
   shell.querySelector("[data-menu-backdrop]").addEventListener("click", closeMenu);

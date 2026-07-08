@@ -1,6 +1,6 @@
 import { formatDate } from "../utils/format.js";
 import { dataService } from "../services/dataService.js?v=20260708-12";
-import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showServiceWorkerNotification } from "../services/browserNotifications.js?v=20260708-13";
+import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showServiceWorkerNotification } from "../services/browserNotifications.js?v=20260708-14";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";
@@ -13,20 +13,20 @@ export function renderNotifications({ user, data, refresh, openRequest }) {
   const hasNotifications = notifications.length > 0;
   const browserState = browserNotificationState();
   const pushState = pushNotificationState();
-  const canEnableNotifications = ["default", "granted", "missing-vapid-key"].includes(pushState);
+  const showPermissionCard = pushState !== "granted";
+  const canEnableNotifications = pushState === "default";
   const view = document.createElement("div");
   view.className = "grid";
   view.innerHTML = `
-    <section class="notification-permission">
+    ${showPermissionCard ? `<section class="notification-permission">
       <div>
         <strong>Notificaciones en segundo plano</strong>
         <p>${escapeHtml(browserPermissionText(pushState, browserState))}</p>
       </div>
       <div class="toolbar">
         ${canEnableNotifications ? `<button class="button btn btn-primary" data-enable-browser-notifications>${icon("bell")} Activar</button>` : ""}
-        ${browserState === "granted" ? `<button class="button secondary btn btn-outline-secondary" data-test-browser-notification>${icon("bell")} Probar</button>` : ""}
       </div>
-    </section>
+    </section>` : ""}
     ${hasNotifications ? `<div class="toolbar">
       ${hasUnread ? `<button class="button secondary btn btn-outline-secondary" data-read>${icon("check")} Marcar leidas</button>` : ""}
       <button class="button danger btn btn-danger" data-clear>${icon("x")} Vaciar</button>
@@ -70,17 +70,6 @@ export function renderNotifications({ user, data, refresh, openRequest }) {
       await refresh();
     } catch (error) {
       toast(error.message || "No fue posible activar las notificaciones.", "error");
-    }
-  });
-  view.querySelector("[data-test-browser-notification]")?.addEventListener("click", async () => {
-    try {
-      await showServiceWorkerNotification({
-        titulo: "SAD",
-        mensaje: "Esta es una notificacion de prueba del navegador."
-      });
-      toast("Notificacion de prueba enviada.", "success");
-    } catch (error) {
-      toast(error.message || "No fue posible mostrar la notificacion de prueba.", "error");
     }
   });
   view.querySelectorAll("[data-notification]").forEach((item) => {

@@ -3,7 +3,7 @@ import { dataService } from "./dataService.js?v=20260708-12";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
-const ICON_URL = "./assets/icon-192.png";
+const ICON_URL = "./assets/icon-192.png?v=20260708-14";
 const SERVICE_WORKER_URL = "./sw.js";
 const REALTIME_REFRESH_DELAY_MS = 500;
 

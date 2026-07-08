@@ -7,7 +7,7 @@
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
-  "background_color": "#f6f8fb",
+  "background_color": "#f6f7f9",
   "theme_color": "#2563eb",
   "icons": [
     {
@@ -23,7 +23,7 @@
       "purpose": "any maskable"
     },
     {
-      "src": "./assets/sad-workspace.svg",
+      "src": "./assets/sad-app-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

@@ -83,8 +83,8 @@ Deno.serve(async (request) => {
   const payload = JSON.stringify({
     title: "SAD",
     body: pushNotificationText(notification, requestInfo),
-    icon: "./assets/icon-192.png",
-    badge: "./assets/icon-192.png",
+    icon: "./assets/icon-192.png?v=20260708-14",
+    badge: "./assets/icon-192.png?v=20260708-14",
     notificationId: notification.id,
     requestId: requestInfo?.id || "",
     url: requestInfo?.id ? `./?request=${requestInfo.id}&notification=${notification.id}` : "./"
