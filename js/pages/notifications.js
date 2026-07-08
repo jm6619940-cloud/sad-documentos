@@ -1,7 +1,7 @@
 import { formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260708-7";
-import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showServiceWorkerNotification } from "../services/browserNotifications.js?v=20260708-7";
-import { toast } from "../components/toast.js?v=20260708-7";
+import { dataService } from "../services/dataService.js?v=20260708-9";
+import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showServiceWorkerNotification } from "../services/browserNotifications.js?v=20260708-9";
+import { toast } from "../components/toast.js?v=20260708-9";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";
 
@@ -35,12 +35,8 @@ export function renderNotifications({ user, data, refresh, openRequest }) {
       ${notifications.map((item) => `
         <li class="notification-item ${item.leida ? "" : "unread"} ${item.solicitud ? "clickable-notification" : ""}" data-notification="${escapeAttr(item.id)}" tabindex="${item.solicitud ? "0" : "-1"}" role="${item.solicitud ? "button" : "listitem"}">
           <div>
-            <strong>${escapeHtml(item.titulo)}</strong>
-            <p>
-              ${item.codigo ? `<span class="notification-code">${escapeHtml(item.codigo)}</span>${item.solicitud?.titulo ? " · " : ""}` : ""}
-              ${item.solicitud?.titulo ? `<span>${escapeHtml(item.solicitud.titulo)}</span>` : ""}
-              ${!item.solicitud?.titulo ? escapeHtml(item.mensaje) : ""}
-            </p>
+            <strong>${escapeHtml(notificationTitle(item))}</strong>
+            <p>${escapeHtml(notificationSummary(item))}</p>
             <small>${formatDate(item.created_at)} · ${item.leida ? "Leida" : "Nueva"}</small>
           </div>
           ${item.solicitud ? `<span class="notification-action">${icon("eye")} Abrir</span>` : ""}
@@ -119,7 +115,8 @@ function browserPermissionText(pushState, browserState) {
     denied: "Bloqueadas por el navegador. Debes habilitarlas desde la configuracion del sitio.",
     unsupported: "Este navegador no soporta notificaciones.",
     insecure: "Necesitan HTTPS para funcionar fuera de localhost.",
-    "push-unsupported": "Este navegador permite avisos basicos, pero no soporta notificaciones push en segundo plano."
+    "push-unsupported": "Este navegador permite avisos basicos, pero no soporta notificaciones push en segundo plano.",
+    "ios-not-installed": "En iPhone debes agregar SAD a la pantalla de inicio, abrirla desde ese icono y luego activar notificaciones. Safari como pestana normal no entrega avisos con el celular bloqueado."
   };
   return labels[pushState] || labels[browserState] || "Estado no disponible.";
 }
@@ -130,6 +127,21 @@ function enrichNotification(notification, data) {
     ? data.solicitudes.find((item) => item.codigo.toLowerCase() === codigo.toLowerCase())
     : null;
   return { ...notification, codigo, solicitud };
+}
+
+function notificationTitle(notification) {
+  return notification.solicitud?.titulo || stripRequestCode(notification.mensaje) || notification.titulo;
+}
+
+function notificationSummary(notification) {
+  if (notification.solicitud) {
+    return notification.titulo;
+  }
+  return stripRequestCode(notification.mensaje) || notification.titulo;
+}
+
+function stripRequestCode(text = "") {
+  return text.replace(/AUT-\d{4}-\d{6}:?\s*/i, "").trim();
 }
 
 function extractRequestCode(text) {

@@ -1,9 +1,9 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260708-7";
+import { dataService } from "./dataService.js?v=20260708-9";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
-const ICON_URL = "./assets/sad-workspace.svg";
+const ICON_URL = "./assets/icon-192.png";
 const SERVICE_WORKER_URL = "./sw.js";
 const REALTIME_REFRESH_DELAY_MS = 500;
 
@@ -13,6 +13,7 @@ let refreshTimer = null;
 let activeUserId = "";
 let knownNotificationIds = new Set();
 let latestDataLoader = null;
+let latestData = null;
 let clickHandler = null;
 let dataHandler = null;
 
@@ -25,6 +26,7 @@ export function browserNotificationState() {
 export function pushNotificationState() {
   const notificationState = browserNotificationState();
   if (notificationState === "unsupported" || notificationState === "insecure") return notificationState;
+  if (isIOSDevice() && !isStandaloneApp()) return "ios-not-installed";
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "push-unsupported";
   if (!APP_CONFIG.vapidPublicKey) return "missing-vapid-key";
   return notificationState;
@@ -34,6 +36,9 @@ export async function requestBrowserNotificationPermission(user) {
   const state = browserNotificationState();
   if (state === "unsupported") throw new Error("Este navegador no soporta notificaciones.");
   if (state === "insecure") throw new Error("Las notificaciones requieren HTTPS.");
+  if (isIOSDevice() && !isStandaloneApp()) {
+    throw new Error("En iPhone debes agregar SAD a la pantalla de inicio y abrirla desde ese icono para recibir notificaciones con el celular bloqueado.");
+  }
 
   const permission = state === "granted" ? "granted" : await Notification.requestPermission();
   if (permission !== "granted") return permission;
@@ -53,7 +58,8 @@ export async function ensurePushSubscription(user, options = {}) {
     return null;
   }
 
-  const registration = await navigator.serviceWorker.register(SERVICE_WORKER_URL);
+  const registration = await navigator.serviceWorker.register(SERVICE_WORKER_URL, { scope: "./" });
+  registration.update().catch(() => {});
   const existing = await registration.pushManager.getSubscription();
   const subscription = existing || await registration.pushManager.subscribe({
     userVisibleOnly: true,
@@ -101,7 +107,8 @@ export async function showServiceWorkerNotification(notification, options = {}) 
     return fallback;
   }
 
-  await navigator.serviceWorker.register(SERVICE_WORKER_URL);
+  const registrationInstall = await navigator.serviceWorker.register(SERVICE_WORKER_URL, { scope: "./" });
+  registrationInstall.update().catch(() => {});
   const registration = await navigator.serviceWorker.ready;
   await registration.showNotification(title, {
     body,
@@ -124,6 +131,7 @@ export function seedBrowserNotifications(data, user) {
 export async function startBrowserNotificationStream({ user, data, loadData, onData, onClick }) {
   if (!user?.id) return;
   latestDataLoader = loadData;
+  latestData = data;
   dataHandler = onData;
   clickHandler = onClick;
 
@@ -161,6 +169,7 @@ export async function stopBrowserNotificationStream() {
   activeUserId = "";
   knownNotificationIds = new Set();
   latestDataLoader = null;
+  latestData = null;
   dataHandler = null;
   clickHandler = null;
 }
@@ -202,6 +211,7 @@ function startPolling(user) {
   pollTimer = setInterval(async () => {
     try {
       const data = await latestDataLoader();
+      latestData = data;
       if (dataHandler) dataHandler(data);
       userNotifications(data, user).forEach((notification) => {
         if (!knownNotificationIds.has(notification.id)) {
@@ -228,6 +238,7 @@ async function refreshDataSoon() {
     refreshTimer = null;
     try {
       const data = await latestDataLoader();
+      latestData = data;
       if (dataHandler) dataHandler(data);
     } catch (error) {
       console.warn("No se pudieron refrescar los datos en tiempo real.", error);
@@ -241,11 +252,43 @@ function userNotifications(data, user) {
 
 function notificationBody(notification) {
   if (!notification) return "";
+  const request = requestFromNotification(notification);
+  if (request?.titulo) return notificationActionText(notification, request);
+  const message = stripRequestCode(notification.mensaje);
+  if (message) return message;
   return notification.mensaje || "Tienes una nueva notificacion.";
+}
+
+function notificationActionText(notification, request) {
+  const action = notification.titulo || "Actualizacion de solicitud";
+  return `${request.titulo} · ${action}`;
+}
+
+function requestFromNotification(notification) {
+  const code = extractRequestCode(`${notification?.titulo || ""} ${notification?.mensaje || ""}`);
+  if (!code) return null;
+  return (latestData?.solicitudes || []).find((item) => item.codigo?.toLowerCase() === code.toLowerCase()) || null;
+}
+
+function stripRequestCode(text = "") {
+  return text.replace(/AUT-\d{4}-\d{6}:?\s*/i, "").trim();
+}
+
+function extractRequestCode(text) {
+  return text.match(/AUT-\d{4}-\d{6}/i)?.[0] || "";
 }
 
 function isNotificationSecureContext() {
   return window.isSecureContext || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+}
+
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function isStandaloneApp() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 }
 
 function urlBase64ToUint8Array(value) {

@@ -1,4 +1,4 @@
-const NOTIFICATION_ICON = new URL("./assets/sad-workspace.svg", self.registration.scope).href;
+const NOTIFICATION_ICON = new URL("./assets/icon-192.png", self.registration.scope).href;
 
 self.addEventListener("push", (event) => {
   let payload = {};
