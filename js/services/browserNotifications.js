@@ -1,5 +1,5 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260708-11";
+import { dataService } from "./dataService.js?v=20260708-12";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
@@ -256,7 +256,7 @@ function notificationBody(notification) {
   if (request?.titulo) return notificationActionText(notification, request);
   const message = stripRequestCode(notification.mensaje);
   if (message) return message;
-  return notification.mensaje || "Tienes una nueva notificacion.";
+  return notification.mensaje || "Actualizacion disponible.";
 }
 
 function notificationTitle(notification) {
@@ -272,7 +272,7 @@ function notificationTitle(notification) {
 
 function notificationActionText(notification, request) {
   const actor = actorName(notification, request);
-  const summary = `${request.titulo} - ${friendlyStatus(request.estado || notificationTitle(notification))}`;
+  const summary = `${request.titulo} - ${notificationStatus(notification, request)}`;
   return actor ? `${actor}: ${summary}` : summary;
 }
 
@@ -298,6 +298,17 @@ function friendlyStatus(status = "") {
   if (normalized.toLowerCase() === "rechazado") return "Rechazada";
   if (normalized.toLowerCase() === "cancelado") return "Cancelada";
   return normalized;
+}
+
+function notificationStatus(notification, request) {
+  const title = `${notification?.titulo || ""}`.toLowerCase();
+  if (title.includes("asignada")) return "Pendiente";
+  if (title.includes("corregida")) return "Pendiente";
+  if (title.includes("correccion")) return "Correccion solicitada";
+  if (title.includes("aprobado") || title.includes("aprobada")) return "Aprobada";
+  if (title.includes("rechazado") || title.includes("rechazada")) return "Rechazada";
+  if (title.includes("cancelado") || title.includes("cancelada")) return "Cancelada";
+  return friendlyStatus(request.estado || notificationTitle(notification));
 }
 
 function stripRequestCode(text = "") {

@@ -83,6 +83,8 @@ Deno.serve(async (request) => {
   const payload = JSON.stringify({
     title: pushTitle(notification),
     body: pushBody(notification, requestInfo),
+    icon: "./assets/icon-192.png",
+    badge: "./assets/icon-192.png",
     notificationId: notification.id,
     requestId: requestInfo?.id || "",
     url: requestInfo?.id ? `./?request=${requestInfo.id}&notification=${notification.id}` : "./"
@@ -148,11 +150,11 @@ async function findRequestInfo(supabase: ReturnType<typeof createAdminClient>, n
 }
 
 function pushBody(notification: NotificationRecord, requestInfo: RequestInfo | null) {
-  if (!requestInfo) return cleanMessage(notification.mensaje) || "Tienes una nueva notificacion.";
+  if (!requestInfo) return cleanMessage(notification.mensaje) || "Actualizacion disponible.";
 
   const actor = actorName(notification, requestInfo);
   const title = requestInfo.titulo || requestInfo.codigo;
-  const status = friendlyStatus(requestInfo.estado || notification.titulo.replace(/^Solicitud\s+/i, ""));
+  const status = pushStatus(notification, requestInfo);
   const summary = `${title} - ${status}`;
 
   return actor ? `${actor}: ${summary}` : summary;
@@ -176,6 +178,17 @@ function pushTitle(notification: NotificationRecord) {
   if (title.includes("rechazado") || title.includes("rechazada")) return "Solicitud rechazada";
   if (title.includes("cancelado") || title.includes("cancelada")) return "Solicitud cancelada";
   return notification.titulo || "Actualizacion de solicitud";
+}
+
+function pushStatus(notification: NotificationRecord, requestInfo: RequestInfo) {
+  const title = notification.titulo.toLowerCase();
+  if (title.includes("asignada")) return "Pendiente";
+  if (title.includes("corregida")) return "Pendiente";
+  if (title.includes("correccion")) return "Correccion solicitada";
+  if (title.includes("aprobado") || title.includes("aprobada")) return "Aprobada";
+  if (title.includes("rechazado") || title.includes("rechazada")) return "Rechazada";
+  if (title.includes("cancelado") || title.includes("cancelada")) return "Cancelada";
+  return friendlyStatus(requestInfo.estado || notification.titulo.replace(/^Solicitud\s+/i, ""));
 }
 
 function friendlyStatus(status: string) {
