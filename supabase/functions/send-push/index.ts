@@ -15,6 +15,21 @@ type PushSubscriptionRow = {
   auth: string;
 };
 
+type RequestInfo = {
+  id: string;
+  codigo: string;
+  titulo: string;
+  estado: string;
+  creador?: ProfileInfo | null;
+  aprobador?: ProfileInfo | null;
+};
+
+type ProfileInfo = {
+  nombre?: string | null;
+  apellido?: string | null;
+  correo?: string | null;
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-sad-webhook-secret",
@@ -66,7 +81,7 @@ Deno.serve(async (request) => {
 
   const requestInfo = await findRequestInfo(supabase, notification);
   const payload = JSON.stringify({
-    title: notification.titulo || "SAD",
+    title: "SAD",
     body: pushBody(notification, requestInfo),
     notificationId: notification.id,
     requestId: requestInfo?.id || "",
@@ -119,24 +134,50 @@ function isNotificationRecord(value: unknown): value is NotificationRecord {
   return Boolean(item?.id && item?.usuario_id && item?.titulo && item?.mensaje);
 }
 
-async function findRequestInfo(supabase: ReturnType<typeof createAdminClient>, notification: NotificationRecord) {
+async function findRequestInfo(supabase: ReturnType<typeof createAdminClient>, notification: NotificationRecord): Promise<RequestInfo | null> {
   const code = `${notification.titulo} ${notification.mensaje}`.match(/AUT-\d{4}-\d{6}/i)?.[0];
   if (!code) return null;
 
   const { data } = await supabase
     .from("solicitudes")
-    .select("id, codigo, titulo")
+    .select("id, codigo, titulo, estado, creador:profiles!solicitudes_creado_por_fkey(nombre, apellido, correo), aprobador:profiles!solicitudes_aprobado_por_fkey(nombre, apellido, correo)")
     .eq("codigo", code)
     .maybeSingle();
 
-  return data;
+  return data as RequestInfo | null;
 }
 
-function pushBody(notification: NotificationRecord, requestInfo: { codigo?: string; titulo?: string } | null) {
-  if (requestInfo?.codigo && requestInfo?.titulo) {
-    return `${requestInfo.codigo} · ${requestInfo.titulo}`;
+function pushBody(notification: NotificationRecord, requestInfo: RequestInfo | null) {
+  if (!requestInfo) return notification.mensaje || "Tienes una nueva notificacion.";
+
+  const actor = actorName(notification, requestInfo);
+  const action = actionText(notification);
+  const title = requestInfo.titulo || requestInfo.codigo;
+  const status = requestInfo.estado || notification.titulo.replace(/^Solicitud\s+/i, "");
+
+  if (actor) {
+    return `${actor} ${action}. ${title} · ${status}`;
   }
-  return notification.mensaje || "Tienes una nueva notificacion.";
+  return `${action}. ${title} · ${status}`;
+}
+
+function actorName(notification: NotificationRecord, requestInfo: RequestInfo) {
+  const profile = notification.titulo.toLowerCase().includes("asignada")
+    ? requestInfo.creador
+    : requestInfo.aprobador || requestInfo.creador;
+
+  const fullName = `${profile?.nombre || ""} ${profile?.apellido || ""}`.trim();
+  return fullName || profile?.correo || "";
+}
+
+function actionText(notification: NotificationRecord) {
+  const title = notification.titulo.toLowerCase();
+  if (title.includes("asignada")) return "creo una solicitud";
+  if (title.includes("aprobado")) return "aprobo la solicitud";
+  if (title.includes("rechazado")) return "rechazo la solicitud";
+  if (title.includes("correccion")) return "solicito revision";
+  if (title.includes("cancelado")) return "cancelo la solicitud";
+  return "actualizo la solicitud";
 }
 
 function json(payload: unknown, status = 200) {

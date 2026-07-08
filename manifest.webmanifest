@@ -1,0 +1,18 @@
+{
+  "name": "SAD Autorizacion",
+  "short_name": "SAD",
+  "description": "Sistema de Autorizacion de Documentos",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f8fb",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "./assets/sad-workspace.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
