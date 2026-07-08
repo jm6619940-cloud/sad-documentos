@@ -1,16 +1,16 @@
-import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260708-5";
-import { closeModal, openModal } from "./components/modal.js?v=20260708-5";
-import { toast } from "./components/toast.js?v=20260708-5";
-import { dataService } from "./services/dataService.js?v=20260708-5";
-import { renderDashboard } from "./pages/dashboard.js?v=20260708-5";
-import { renderNewRequest } from "./pages/newRequest.js?v=20260708-5";
-import { renderRequestsTable } from "./pages/requestsTable.js?v=20260708-5";
-import { renderRequestDetail } from "./pages/requestDetail.js?v=20260708-5";
-import { renderUsers } from "./pages/users.js?v=20260708-5";
-import { renderCatalogs } from "./pages/catalogs.js?v=20260708-5";
-import { renderProfile } from "./pages/profile.js?v=20260708-5";
-import { renderNotifications } from "./pages/notifications.js?v=20260708-5";
-import { startBrowserNotificationStream, stopBrowserNotificationStream } from "./services/browserNotifications.js?v=20260708-5";
+import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260708-6";
+import { closeModal, openModal } from "./components/modal.js?v=20260708-6";
+import { toast } from "./components/toast.js?v=20260708-6";
+import { dataService } from "./services/dataService.js?v=20260708-6";
+import { renderDashboard } from "./pages/dashboard.js?v=20260708-6";
+import { renderNewRequest } from "./pages/newRequest.js?v=20260708-6";
+import { renderRequestsTable } from "./pages/requestsTable.js?v=20260708-6";
+import { renderRequestDetail } from "./pages/requestDetail.js?v=20260708-6";
+import { renderUsers } from "./pages/users.js?v=20260708-6";
+import { renderCatalogs } from "./pages/catalogs.js?v=20260708-6";
+import { renderProfile } from "./pages/profile.js?v=20260708-6";
+import { renderNotifications } from "./pages/notifications.js?v=20260708-6";
+import { startBrowserNotificationStream, stopBrowserNotificationStream } from "./services/browserNotifications.js?v=20260708-6";
 import { ROLES, STATUS } from "./utils/constants.js";
 
 const root = document.querySelector("#app");
@@ -19,8 +19,11 @@ const state = {
   data: null,
   route: "dashboard"
 };
+let suppressAuthSyncUntil = 0;
+let syncingAuthState = false;
 
 async function init() {
+  await watchAuthState();
   state.user = await dataService.getCurrentUser();
   if (state.user) state.data = await dataService.listData();
   await syncBrowserNotifications();
@@ -114,6 +117,7 @@ async function login(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   try {
+    suppressAuthSyncUntil = Date.now() + 2500;
     state.user = await dataService.signIn(form.get("email"), form.get("password"));
     state.data = await dataService.listData();
     state.route = "dashboard";
@@ -130,12 +134,51 @@ async function login(event) {
 }
 
 async function logout() {
+  suppressAuthSyncUntil = Date.now() + 2500;
   await stopBrowserNotificationStream();
   await dataService.signOut();
   state.user = null;
   state.data = null;
   state.route = "dashboard";
   render();
+}
+
+async function watchAuthState() {
+  await dataService.onAuthStateChange((event, session) => {
+    if (Date.now() < suppressAuthSyncUntil || ["INITIAL_SESSION", "TOKEN_REFRESHED"].includes(event)) return;
+    const sessionUserId = session?.user?.id || "";
+    const currentUserId = state.user?.id || "";
+    if (sessionUserId === currentUserId) return;
+    setTimeout(() => {
+      syncCurrentSession({ notify: Boolean(currentUserId || sessionUserId) }).catch((error) => {
+        console.warn("No se pudo sincronizar el cambio de sesion.", error);
+      });
+    }, 0);
+  });
+}
+
+async function syncCurrentSession({ notify = false } = {}) {
+  if (syncingAuthState) return;
+  syncingAuthState = true;
+  try {
+    const previousUserId = state.user?.id || "";
+    const currentUser = await dataService.getCurrentUser();
+    const currentUserId = currentUser?.id || "";
+    if (previousUserId === currentUserId) return;
+
+    closeModal();
+    await stopBrowserNotificationStream();
+    state.user = currentUser;
+    state.data = currentUser ? await dataService.listData() : null;
+    state.route = "dashboard";
+    await syncBrowserNotifications();
+    render();
+
+    if (notify && currentUser) toast("Sesion actualizada para el usuario activo.", "info");
+    if (notify && !currentUser) toast("La sesion se cerro en esta maquina.", "info");
+  } finally {
+    syncingAuthState = false;
+  }
 }
 
 async function syncBrowserNotifications() {
@@ -188,6 +231,12 @@ function renderPage() {
 
 window.addEventListener("unhandledrejection", (event) => {
   toast(event.reason?.message || "Ocurrio un error inesperado.", "error");
+});
+
+window.addEventListener("focus", () => {
+  syncCurrentSession().catch((error) => {
+    console.warn("No se pudo sincronizar la sesion activa.", error);
+  });
 });
 
 init();

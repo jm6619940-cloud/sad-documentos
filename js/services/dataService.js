@@ -134,6 +134,12 @@ export const dataService = {
     return profile?.activo ? profile : null;
   },
 
+  async onAuthStateChange(callback) {
+    const supabase = await getSupabase();
+    const { data } = supabase.auth.onAuthStateChange(callback);
+    return data.subscription;
+  },
+
   async listData() {
     const supabase = await getSupabase();
     const [

@@ -1,9 +1,9 @@
 import { ROLES } from "../utils/constants.js";
-import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260708-5";
+import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260708-6";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260708-5";
+import { renderRequestDetail } from "./requestDetail.js?v=20260708-6";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
