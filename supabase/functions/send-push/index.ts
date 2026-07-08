@@ -81,8 +81,8 @@ Deno.serve(async (request) => {
 
   const requestInfo = await findRequestInfo(supabase, notification);
   const payload = JSON.stringify({
-    title: pushTitle(notification),
-    body: pushBody(notification, requestInfo),
+    title: "SAD",
+    body: pushNotificationText(notification, requestInfo),
     icon: "./assets/icon-192.png",
     badge: "./assets/icon-192.png",
     notificationId: notification.id,
@@ -149,8 +149,14 @@ async function findRequestInfo(supabase: ReturnType<typeof createAdminClient>, n
   return data as RequestInfo | null;
 }
 
+function pushNotificationText(notification: NotificationRecord, requestInfo: RequestInfo | null) {
+  const action = pushTitle(notification);
+  const body = pushBody(notification, requestInfo);
+  return body ? `${action}\n${body}` : action;
+}
+
 function pushBody(notification: NotificationRecord, requestInfo: RequestInfo | null) {
-  if (!requestInfo) return cleanMessage(notification.mensaje) || "Actualizacion disponible.";
+  if (!requestInfo) return cleanMessage(notification.mensaje) || "";
 
   const actor = actorName(notification, requestInfo);
   const title = requestInfo.titulo || requestInfo.codigo;

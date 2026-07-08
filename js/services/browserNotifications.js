@@ -72,8 +72,8 @@ export async function ensurePushSubscription(user, options = {}) {
 
 export function showBrowserNotification(notification, options = {}) {
   if (browserNotificationState() !== "granted") return null;
-  const title = notificationTitle(notification) || options.title || "SAD";
-  const body = notificationBody(notification) || options.body || "Tienes una nueva notificacion.";
+  const title = "SAD";
+  const body = notificationText(notification) || options.body || "Tienes una nueva notificacion.";
   const browserNotification = new Notification(title, {
     body,
     icon: ICON_URL,
@@ -98,8 +98,8 @@ export async function showServiceWorkerNotification(notification, options = {}) 
     throw new Error("Las notificaciones no estan permitidas en este navegador.");
   }
 
-  const title = notificationTitle(notification) || options.title || "SAD";
-  const body = notificationBody(notification) || options.body || "Tienes una nueva notificacion.";
+  const title = "SAD";
+  const body = notificationText(notification) || options.body || "Tienes una nueva notificacion.";
 
   if (!("serviceWorker" in navigator)) {
     const fallback = showBrowserNotification(notification, options);
@@ -257,6 +257,12 @@ function notificationBody(notification) {
   const message = stripRequestCode(notification.mensaje);
   if (message) return message;
   return notification.mensaje || "Actualizacion disponible.";
+}
+
+function notificationText(notification) {
+  const title = notificationTitle(notification);
+  const body = notificationBody(notification);
+  return body ? `${title}\n${body}` : title;
 }
 
 function notificationTitle(notification) {

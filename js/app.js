@@ -10,7 +10,7 @@ import { renderUsers } from "./pages/users.js?v=20260708-12";
 import { renderCatalogs } from "./pages/catalogs.js?v=20260708-12";
 import { renderProfile } from "./pages/profile.js?v=20260708-12";
 import { renderNotifications } from "./pages/notifications.js?v=20260708-12";
-import { startBrowserNotificationStream, stopBrowserNotificationStream } from "./services/browserNotifications.js?v=20260708-12";
+import { startBrowserNotificationStream, stopBrowserNotificationStream } from "./services/browserNotifications.js?v=20260708-13";
 import { ROLES, STATUS } from "./utils/constants.js";
 
 const root = document.querySelector("#app");
