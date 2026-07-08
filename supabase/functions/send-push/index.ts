@@ -81,7 +81,7 @@ Deno.serve(async (request) => {
 
   const requestInfo = await findRequestInfo(supabase, notification);
   const payload = JSON.stringify({
-    title: "SAD",
+    title: pushTitle(notification),
     body: pushBody(notification, requestInfo),
     notificationId: notification.id,
     requestId: requestInfo?.id || "",
@@ -148,17 +148,14 @@ async function findRequestInfo(supabase: ReturnType<typeof createAdminClient>, n
 }
 
 function pushBody(notification: NotificationRecord, requestInfo: RequestInfo | null) {
-  if (!requestInfo) return notification.mensaje || "Tienes una nueva notificacion.";
+  if (!requestInfo) return cleanMessage(notification.mensaje) || "Tienes una nueva notificacion.";
 
   const actor = actorName(notification, requestInfo);
-  const action = actionText(notification);
   const title = requestInfo.titulo || requestInfo.codigo;
-  const status = requestInfo.estado || notification.titulo.replace(/^Solicitud\s+/i, "");
+  const status = friendlyStatus(requestInfo.estado || notification.titulo.replace(/^Solicitud\s+/i, ""));
+  const summary = `${title} - ${status}`;
 
-  if (actor) {
-    return `${actor} ${action}. ${title} · ${status}`;
-  }
-  return `${action}. ${title} · ${status}`;
+  return actor ? `${actor}: ${summary}` : summary;
 }
 
 function actorName(notification: NotificationRecord, requestInfo: RequestInfo) {
@@ -170,14 +167,28 @@ function actorName(notification: NotificationRecord, requestInfo: RequestInfo) {
   return fullName || profile?.correo || "";
 }
 
-function actionText(notification: NotificationRecord) {
+function pushTitle(notification: NotificationRecord) {
   const title = notification.titulo.toLowerCase();
-  if (title.includes("asignada")) return "creo una solicitud";
-  if (title.includes("aprobado")) return "aprobo la solicitud";
-  if (title.includes("rechazado")) return "rechazo la solicitud";
-  if (title.includes("correccion")) return "solicito revision";
-  if (title.includes("cancelado")) return "cancelo la solicitud";
-  return "actualizo la solicitud";
+  if (title.includes("asignada")) return "Nueva solicitud asignada";
+  if (title.includes("corregida")) return "Solicitud corregida";
+  if (title.includes("correccion")) return "Correccion solicitada";
+  if (title.includes("aprobado") || title.includes("aprobada")) return "Solicitud aprobada";
+  if (title.includes("rechazado") || title.includes("rechazada")) return "Solicitud rechazada";
+  if (title.includes("cancelado") || title.includes("cancelada")) return "Solicitud cancelada";
+  return notification.titulo || "Actualizacion de solicitud";
+}
+
+function friendlyStatus(status: string) {
+  const normalized = status.replace(/^Solicitud\s+/i, "").trim();
+  if (!normalized) return "Actualizada";
+  if (normalized.toLowerCase() === "aprobado") return "Aprobada";
+  if (normalized.toLowerCase() === "rechazado") return "Rechazada";
+  if (normalized.toLowerCase() === "cancelado") return "Cancelada";
+  return normalized;
+}
+
+function cleanMessage(message: string) {
+  return message.replace(/AUT-\d{4}-\d{6}:?\s*/i, "").trim();
 }
 
 function json(payload: unknown, status = 200) {

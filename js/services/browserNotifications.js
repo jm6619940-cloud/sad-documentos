@@ -1,5 +1,5 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260708-10";
+import { dataService } from "./dataService.js?v=20260708-11";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
@@ -72,7 +72,7 @@ export async function ensurePushSubscription(user, options = {}) {
 
 export function showBrowserNotification(notification, options = {}) {
   if (browserNotificationState() !== "granted") return null;
-  const title = notification?.titulo || options.title || "SAD";
+  const title = notificationTitle(notification) || options.title || "SAD";
   const body = notificationBody(notification) || options.body || "Tienes una nueva notificacion.";
   const browserNotification = new Notification(title, {
     body,
@@ -98,7 +98,7 @@ export async function showServiceWorkerNotification(notification, options = {}) 
     throw new Error("Las notificaciones no estan permitidas en este navegador.");
   }
 
-  const title = notification?.titulo || options.title || "SAD";
+  const title = notificationTitle(notification) || options.title || "SAD";
   const body = notificationBody(notification) || options.body || "Tienes una nueva notificacion.";
 
   if (!("serviceWorker" in navigator)) {
@@ -259,15 +259,45 @@ function notificationBody(notification) {
   return notification.mensaje || "Tienes una nueva notificacion.";
 }
 
+function notificationTitle(notification) {
+  const title = `${notification?.titulo || ""}`.toLowerCase();
+  if (title.includes("asignada")) return "Nueva solicitud asignada";
+  if (title.includes("corregida")) return "Solicitud corregida";
+  if (title.includes("correccion")) return "Correccion solicitada";
+  if (title.includes("aprobado") || title.includes("aprobada")) return "Solicitud aprobada";
+  if (title.includes("rechazado") || title.includes("rechazada")) return "Solicitud rechazada";
+  if (title.includes("cancelado") || title.includes("cancelada")) return "Solicitud cancelada";
+  return notification?.titulo || "";
+}
+
 function notificationActionText(notification, request) {
-  const action = notification.titulo || "Actualizacion de solicitud";
-  return `${request.titulo} · ${action}`;
+  const actor = actorName(notification, request);
+  const summary = `${request.titulo} - ${friendlyStatus(request.estado || notificationTitle(notification))}`;
+  return actor ? `${actor}: ${summary}` : summary;
 }
 
 function requestFromNotification(notification) {
   const code = extractRequestCode(`${notification?.titulo || ""} ${notification?.mensaje || ""}`);
   if (!code) return null;
   return (latestData?.solicitudes || []).find((item) => item.codigo?.toLowerCase() === code.toLowerCase()) || null;
+}
+
+function actorName(notification, request) {
+  const title = `${notification?.titulo || ""}`.toLowerCase();
+  const profile = title.includes("asignada")
+    ? request.creador
+    : request.aprobador || request.creador;
+  const fullName = `${profile?.nombre || ""} ${profile?.apellido || ""}`.trim();
+  return fullName || profile?.correo || "";
+}
+
+function friendlyStatus(status = "") {
+  const normalized = status.replace(/^Solicitud\s+/i, "").trim();
+  if (!normalized) return "Actualizada";
+  if (normalized.toLowerCase() === "aprobado") return "Aprobada";
+  if (normalized.toLowerCase() === "rechazado") return "Rechazada";
+  if (normalized.toLowerCase() === "cancelado") return "Cancelada";
+  return normalized;
 }
 
 function stripRequestCode(text = "") {
