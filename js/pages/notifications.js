@@ -1,6 +1,7 @@
 import { formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260707-3";
-import { toast } from "../components/toast.js?v=20260707-3";
+import { dataService } from "../services/dataService.js?v=20260708-3";
+import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showBrowserNotification } from "../services/browserNotifications.js?v=20260708-3";
+import { toast } from "../components/toast.js?v=20260708-3";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";
 
@@ -10,9 +11,22 @@ export function renderNotifications({ user, data, refresh, openRequest }) {
     .map((item) => enrichNotification(item, data));
   const hasUnread = notifications.some((item) => !item.leida);
   const hasNotifications = notifications.length > 0;
+  const browserState = browserNotificationState();
+  const pushState = pushNotificationState();
+  const canEnableNotifications = ["default", "granted", "missing-vapid-key"].includes(pushState);
   const view = document.createElement("div");
   view.className = "grid";
   view.innerHTML = `
+    <section class="notification-permission">
+      <div>
+        <strong>Notificaciones en segundo plano</strong>
+        <p>${escapeHtml(browserPermissionText(pushState, browserState))}</p>
+      </div>
+      <div class="toolbar">
+        ${canEnableNotifications ? `<button class="button btn btn-primary" data-enable-browser-notifications>${icon("bell")} Activar</button>` : ""}
+        ${browserState === "granted" ? `<button class="button secondary btn btn-outline-secondary" data-test-browser-notification>${icon("bell")} Probar</button>` : ""}
+      </div>
+    </section>
     ${hasNotifications ? `<div class="toolbar">
       ${hasUnread ? `<button class="button secondary btn btn-outline-secondary" data-read>${icon("check")} Marcar leidas</button>` : ""}
       <button class="button danger btn btn-danger" data-clear>${icon("x")} Vaciar</button>
@@ -44,6 +58,31 @@ export function renderNotifications({ user, data, refresh, openRequest }) {
     toast("Notificaciones vaciadas.", "success");
     await refresh();
   });
+  view.querySelector("[data-enable-browser-notifications]")?.addEventListener("click", async () => {
+    try {
+      const permission = await requestBrowserNotificationPermission(user);
+      if (permission !== "granted") {
+        toast("Permiso de notificaciones no activado.", "info");
+        await refresh();
+        return;
+      }
+      showBrowserNotification({
+        titulo: "Notificaciones activadas",
+        mensaje: "SAD ya puede avisarte cuando llegue una nueva solicitud o actualizacion."
+      });
+      toast("Notificaciones en segundo plano activadas.", "success");
+      await refresh();
+    } catch (error) {
+      toast(error.message || "No fue posible activar las notificaciones.", "error");
+    }
+  });
+  view.querySelector("[data-test-browser-notification]")?.addEventListener("click", () => {
+    showBrowserNotification({
+      titulo: "SAD",
+      mensaje: "Esta es una notificacion de prueba del navegador."
+    });
+    toast("Notificacion de prueba enviada.", "success");
+  });
   view.querySelectorAll("[data-notification]").forEach((item) => {
     const open = async () => {
       const notification = notifications.find((entry) => entry.id === item.dataset.notification);
@@ -64,6 +103,21 @@ export function renderNotifications({ user, data, refresh, openRequest }) {
     });
   });
   return view;
+}
+
+function browserPermissionText(pushState, browserState) {
+  if (pushState === "missing-vapid-key") {
+    return "Falta configurar la clave publica VAPID para activar avisos con la app cerrada.";
+  }
+  const labels = {
+    granted: "Activas. Recibiras avisos aunque la app quede en segundo plano, despues de desplegar la funcion push.",
+    default: "Puedes activarlas para recibir avisos como una app, incluso con la pagina cerrada.",
+    denied: "Bloqueadas por el navegador. Debes habilitarlas desde la configuracion del sitio.",
+    unsupported: "Este navegador no soporta notificaciones.",
+    insecure: "Necesitan HTTPS para funcionar fuera de localhost.",
+    "push-unsupported": "Este navegador permite avisos basicos, pero no soporta notificaciones push en segundo plano."
+  };
+  return labels[pushState] || labels[browserState] || "Estado no disponible.";
 }
 
 function enrichNotification(notification, data) {

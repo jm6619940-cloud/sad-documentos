@@ -3,3 +3,6 @@
 .env.*
 !.env.example
 sql/
+supabase/.temp/
+supabase/functions/.env
+supabase/functions/.env.*

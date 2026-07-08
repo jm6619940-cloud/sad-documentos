@@ -1,15 +1,16 @@
-import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260707-3";
-import { closeModal, openModal } from "./components/modal.js?v=20260707-3";
-import { toast } from "./components/toast.js?v=20260707-3";
-import { dataService } from "./services/dataService.js?v=20260707-3";
-import { renderDashboard } from "./pages/dashboard.js?v=20260707-3";
-import { renderNewRequest } from "./pages/newRequest.js?v=20260707-3";
-import { renderRequestsTable } from "./pages/requestsTable.js?v=20260707-3";
-import { renderRequestDetail } from "./pages/requestDetail.js?v=20260707-3";
-import { renderUsers } from "./pages/users.js?v=20260707-3";
-import { renderCatalogs } from "./pages/catalogs.js?v=20260707-3";
-import { renderProfile } from "./pages/profile.js?v=20260707-3";
-import { renderNotifications } from "./pages/notifications.js?v=20260707-3";
+import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260708-3";
+import { closeModal, openModal } from "./components/modal.js?v=20260708-3";
+import { toast } from "./components/toast.js?v=20260708-3";
+import { dataService } from "./services/dataService.js?v=20260708-3";
+import { renderDashboard } from "./pages/dashboard.js?v=20260708-3";
+import { renderNewRequest } from "./pages/newRequest.js?v=20260708-3";
+import { renderRequestsTable } from "./pages/requestsTable.js?v=20260708-3";
+import { renderRequestDetail } from "./pages/requestDetail.js?v=20260708-3";
+import { renderUsers } from "./pages/users.js?v=20260708-3";
+import { renderCatalogs } from "./pages/catalogs.js?v=20260708-3";
+import { renderProfile } from "./pages/profile.js?v=20260708-3";
+import { renderNotifications } from "./pages/notifications.js?v=20260708-3";
+import { startBrowserNotificationStream, stopBrowserNotificationStream } from "./services/browserNotifications.js?v=20260708-3";
 import { ROLES, STATUS } from "./utils/constants.js";
 
 const root = document.querySelector("#app");
@@ -22,12 +23,15 @@ const state = {
 async function init() {
   state.user = await dataService.getCurrentUser();
   if (state.user) state.data = await dataService.listData();
+  await syncBrowserNotifications();
   render();
+  await openRequestFromUrl();
 }
 
 async function refresh() {
   state.user = await dataService.getCurrentUser();
   state.data = state.user ? await dataService.listData() : null;
+  await syncBrowserNotifications();
   render();
 }
 
@@ -51,8 +55,14 @@ async function refreshNotificationsModal() {
   openNotificationsModal();
 }
 
-async function openRequestFromNotification(solicitudId) {
+async function openRequestFromNotification(target) {
   state.data = await dataService.listData();
+  if (typeof target !== "string" && target?.id && !target.leida) {
+    await dataService.markNotificationRead(target.id, state.user.id);
+  }
+  const solicitudId = typeof target === "string"
+    ? target
+    : requestIdFromNotification(target);
   const solicitud = state.data.solicitudes.find((item) => item.id === solicitudId);
   if (!solicitud) {
     toast("No fue posible encontrar la solicitud vinculada.", "error");
@@ -64,6 +74,30 @@ async function openRequestFromNotification(solicitudId) {
   state.route = routeForRequest(solicitud);
   render();
   openModal(renderRequestDetail({ solicitud, data: state.data, user: state.user, onChange: refresh }), { title: solicitud.codigo });
+}
+
+async function openRequestFromUrl() {
+  if (!state.user || !state.data) return;
+  const params = new URLSearchParams(window.location.search);
+  const solicitudId = params.get("request");
+  const notificationId = params.get("notification");
+  if (!solicitudId) return;
+
+  const cleanUrl = `${window.location.pathname}${window.location.hash}`;
+  window.history.replaceState({}, document.title, cleanUrl);
+  if (notificationId) {
+    await dataService.markNotificationRead(notificationId, state.user.id).catch((error) => {
+      console.warn("No se pudo marcar la notificacion como leida.", error);
+    });
+  }
+  await openRequestFromNotification(solicitudId);
+}
+
+function requestIdFromNotification(notification) {
+  if (!notification) return "";
+  const text = `${notification.titulo || ""} ${notification.mensaje || ""}`;
+  const codigo = text.match(/AUT-\d{4}-\d{6}/i)?.[0] || "";
+  return state.data.solicitudes.find((item) => item.codigo.toLowerCase() === codigo.toLowerCase())?.id || "";
 }
 
 function routeForRequest(solicitud) {
@@ -83,8 +117,10 @@ async function login(event) {
     state.user = await dataService.signIn(form.get("email"), form.get("password"));
     state.data = await dataService.listData();
     state.route = "dashboard";
+    await syncBrowserNotifications();
     toast("Sesion iniciada.", "success");
     render();
+    await openRequestFromUrl();
   } catch (error) {
     const message = error.message === "Invalid login credentials"
       ? "Correo o contrasena incorrectos."
@@ -94,11 +130,29 @@ async function login(event) {
 }
 
 async function logout() {
+  await stopBrowserNotificationStream();
   await dataService.signOut();
   state.user = null;
   state.data = null;
   state.route = "dashboard";
   render();
+}
+
+async function syncBrowserNotifications() {
+  if (!state.user || !state.data) {
+    await stopBrowserNotificationStream();
+    return;
+  }
+  await startBrowserNotificationStream({
+    user: state.user,
+    data: state.data,
+    loadData: async () => {
+      state.data = await dataService.listData();
+      return state.data;
+    },
+    onData: () => render(),
+    onClick: openRequestFromNotification
+  });
 }
 
 function render() {

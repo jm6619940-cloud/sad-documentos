@@ -731,6 +731,21 @@ tr:hover td {
   gap: 10px;
 }
 
+.notification-permission {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfcfe;
+}
+
+.notification-permission p {
+  margin: 3px 0 0;
+}
+
 .notification-item.unread {
   border-color: #bfdbfe;
   background: #f8fbff;
@@ -1365,7 +1380,7 @@ tr:hover td {
 
   .request-list {
     display: grid;
-    gap: 12px;
+    gap: 16px;
   }
 
   .table-wrap > .request-list {
@@ -1378,7 +1393,7 @@ tr:hover td {
 
   .request-list-body {
     display: grid;
-    gap: 12px;
+    gap: 16px;
   }
 
   .request-grid {
@@ -1630,7 +1645,7 @@ tr:hover td {
   table.table {
     min-width: 0;
     border-collapse: separate;
-    border-spacing: 0 12px;
+    border-spacing: 0 16px;
     table-layout: auto;
   }
 
@@ -1879,7 +1894,7 @@ tr:hover td {
   table.table {
     min-width: 0;
     border-collapse: separate;
-    border-spacing: 0 12px;
+    border-spacing: 0 18px;
   }
 
   table thead {
@@ -1916,7 +1931,7 @@ tr:hover td {
 
   .request-list {
     display: grid;
-    gap: 12px;
+    gap: 18px;
   }
 
   .request-header {
@@ -1925,7 +1940,7 @@ tr:hover td {
 
   .request-list-body {
     display: grid;
-    gap: 12px;
+    gap: 18px;
   }
 
   .request-grid {
@@ -2044,6 +2059,15 @@ tr:hover td {
 
   .approval-state {
     justify-items: stretch;
+  }
+
+  .notification-item,
+  .notification-permission {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-action {
+    justify-content: flex-start;
   }
 
   .correction-file-option {

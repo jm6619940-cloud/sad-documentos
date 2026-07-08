@@ -271,6 +271,37 @@ export const dataService = {
     if (error) throw error;
   },
 
+  async savePushSubscription(userId, subscription) {
+    const payload = subscription?.toJSON ? subscription.toJSON() : subscription;
+    const keys = payload?.keys || {};
+    if (!userId || !payload?.endpoint || !keys.p256dh || !keys.auth) {
+      throw new Error("La suscripcion push no esta completa.");
+    }
+
+    const supabase = await getSupabase();
+    const { error } = await supabase.from("push_subscriptions").upsert({
+      usuario_id: userId,
+      endpoint: payload.endpoint,
+      p256dh: keys.p256dh,
+      auth: keys.auth,
+      user_agent: navigator.userAgent,
+      activo: true,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "endpoint" });
+    if (error) throw error;
+  },
+
+  async removePushSubscription(endpoint, userId) {
+    if (!endpoint || !userId) return;
+    const supabase = await getSupabase();
+    const { error } = await supabase
+      .from("push_subscriptions")
+      .update({ activo: false, updated_at: new Date().toISOString() })
+      .eq("endpoint", endpoint)
+      .eq("usuario_id", userId);
+    if (error) throw error;
+  },
+
   async signedUrl(path) {
     const supabase = await getSupabase();
     const { data, error } = await supabase.storage.from(APP_CONFIG.storageBucket).createSignedUrl(path, 300);
