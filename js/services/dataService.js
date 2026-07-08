@@ -279,15 +279,12 @@ export const dataService = {
     }
 
     const supabase = await getSupabase();
-    const { error } = await supabase.from("push_subscriptions").upsert({
-      usuario_id: userId,
-      endpoint: payload.endpoint,
-      p256dh: keys.p256dh,
-      auth: keys.auth,
-      user_agent: navigator.userAgent,
-      activo: true,
-      updated_at: new Date().toISOString()
-    }, { onConflict: "endpoint" });
+    const { error } = await supabase.rpc("registrar_push_subscription", {
+      p_endpoint: payload.endpoint,
+      p_p256dh: keys.p256dh,
+      p_auth: keys.auth,
+      p_user_agent: navigator.userAgent
+    });
     if (error) throw error;
   },
 
