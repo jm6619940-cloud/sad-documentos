@@ -1,13 +1,15 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260708-6";
+import { dataService } from "./dataService.js?v=20260708-7";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
 const ICON_URL = "./assets/sad-workspace.svg";
 const SERVICE_WORKER_URL = "./sw.js";
+const REALTIME_REFRESH_DELAY_MS = 500;
 
 let channel = null;
 let pollTimer = null;
+let refreshTimer = null;
 let activeUserId = "";
 let knownNotificationIds = new Set();
 let latestDataLoader = null;
@@ -147,6 +149,10 @@ export async function stopBrowserNotificationStream() {
     clearInterval(pollTimer);
     pollTimer = null;
   }
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
   if (channel) {
     const supabase = await getSupabase();
     await supabase.removeChannel(channel);
@@ -170,8 +176,24 @@ async function subscribeRealtime(userId) {
       table: "notificaciones",
       filter: `usuario_id=eq.${userId}`
     }, async (payload) => {
+      await refreshDataSoon();
       await handleIncomingNotification(payload.new);
     })
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "solicitudes"
+    }, refreshDataSoon)
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "solicitud_aprobadores"
+    }, refreshDataSoon)
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "comentarios"
+    }, refreshDataSoon)
     .subscribe();
 }
 
@@ -195,8 +217,22 @@ function startPolling(user) {
 async function handleIncomingNotification(notification) {
   if (!notification?.id || knownNotificationIds.has(notification.id)) return;
   knownNotificationIds.add(notification.id);
-  if (APP_CONFIG.vapidPublicKey && browserNotificationState() === "granted") return;
+  if (APP_CONFIG.vapidPublicKey && browserNotificationState() === "granted" && document.visibilityState !== "visible") return;
   showBrowserNotification(notification);
+}
+
+async function refreshDataSoon() {
+  if (!latestDataLoader) return;
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    refreshTimer = null;
+    try {
+      const data = await latestDataLoader();
+      if (dataHandler) dataHandler(data);
+    } catch (error) {
+      console.warn("No se pudieron refrescar los datos en tiempo real.", error);
+    }
+  }, REALTIME_REFRESH_DELAY_MS);
 }
 
 function userNotifications(data, user) {

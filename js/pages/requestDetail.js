@@ -1,8 +1,8 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260708-6";
-import { toast } from "../components/toast.js?v=20260708-6";
-import { closeModal } from "../components/modal.js?v=20260708-6";
+import { dataService } from "../services/dataService.js?v=20260708-7";
+import { toast } from "../components/toast.js?v=20260708-7";
+import { closeModal } from "../components/modal.js?v=20260708-7";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
