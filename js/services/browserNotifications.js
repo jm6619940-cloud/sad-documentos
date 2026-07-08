@@ -1,5 +1,5 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260708-9";
+import { dataService } from "./dataService.js?v=20260708-10";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
@@ -24,21 +24,21 @@ export function browserNotificationState() {
 }
 
 export function pushNotificationState() {
+  if (isIOSDevice() && !isStandaloneApp()) return "ios-not-installed";
   const notificationState = browserNotificationState();
   if (notificationState === "unsupported" || notificationState === "insecure") return notificationState;
-  if (isIOSDevice() && !isStandaloneApp()) return "ios-not-installed";
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "push-unsupported";
   if (!APP_CONFIG.vapidPublicKey) return "missing-vapid-key";
   return notificationState;
 }
 
 export async function requestBrowserNotificationPermission(user) {
-  const state = browserNotificationState();
-  if (state === "unsupported") throw new Error("Este navegador no soporta notificaciones.");
-  if (state === "insecure") throw new Error("Las notificaciones requieren HTTPS.");
   if (isIOSDevice() && !isStandaloneApp()) {
     throw new Error("En iPhone debes agregar SAD a la pantalla de inicio y abrirla desde ese icono para recibir notificaciones con el celular bloqueado.");
   }
+  const state = browserNotificationState();
+  if (state === "unsupported") throw new Error("Este navegador no soporta notificaciones.");
+  if (state === "insecure") throw new Error("Las notificaciones requieren HTTPS.");
 
   const permission = state === "granted" ? "granted" : await Notification.requestPermission();
   if (permission !== "granted") return permission;
