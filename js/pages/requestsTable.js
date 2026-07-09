@@ -3,8 +3,9 @@ import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260708-
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260708-12";
+import { renderRequestDetail } from "./requestDetail.js?v=20260709-4";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
+import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v=20260709-4";
 
 const TABLE_STATE = new Map();
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100, "all"];
@@ -81,7 +82,7 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
             <div class="request-grid request-row clickable-row" data-row-detail="${escapeAttr(item.id)}" role="row" tabindex="0">
               <div class="request-cell request-cell-title" data-label="Titulo" role="cell" title="${escapeAttr(item.titulo || item.codigo)}"><strong class="cell-ellipsis">${escapeHtml(item.titulo || item.codigo)}</strong></div>
               ${isPending || isHistory ? `<div class="request-cell request-cell-person" data-label="Solicitante" role="cell" title="${escapeAttr(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`.trim())}"><span class="cell-ellipsis">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</span></div><div class="request-cell request-cell-department" data-label="Departamento" role="cell" title="${escapeAttr(item.departamento?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.departamento?.nombre)}</span></div>` : ""}
-              <div class="request-cell request-cell-status" data-label="Estado" role="cell">${statusSummary(item)}</div>
+              <div class="request-cell request-cell-status" data-label="Estado" role="cell">${statusSummary(item, user, data)}</div>
               <div class="request-cell request-cell-type" data-label="Tipo" role="cell" title="${escapeAttr(item.tipo?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.tipo?.nombre)}</span></div>
               <div class="request-cell request-cell-priority" data-label="Prioridad" role="cell"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></div>
               <div class="request-cell request-cell-approvers" data-label="Aprobadores" role="cell">${approverSummary(data, item.id)}</div>
@@ -205,8 +206,8 @@ function option(value) {
   return `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`;
 }
 
-function statusSummary(item) {
-  const execution = isPurchaseRequest(item) && item.estado === "Aprobado"
+function statusSummary(item, user, data) {
+  const execution = canSeePurchaseModule(user, data) && isPurchaseRequest(item) && item.estado === "Aprobado"
     ? `<span class="badge ${item.ejecucion_estado === "Completada" ? "Aprobado" : "Pendiente"}">${escapeHtml(item.ejecucion_estado || "Pendiente")}</span>`
     : "";
   return `
@@ -215,14 +216,6 @@ function statusSummary(item) {
       ${execution}
     </div>
   `;
-}
-
-function isPurchaseRequest(item) {
-  return normalizePurchaseText(`${item.tipo?.nombre || ""} ${item.departamento?.nombre || ""}`).includes("compra");
-}
-
-function normalizePurchaseText(value = "") {
-  return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
 function clamp(value, min, max) {

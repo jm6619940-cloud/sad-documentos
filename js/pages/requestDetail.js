@@ -1,10 +1,11 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260709-3";
+import { dataService } from "../services/dataService.js?v=20260709-4";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { closeModal } from "../components/modal.js?v=20260708-12";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
+import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v=20260709-4";
 
 const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
@@ -24,9 +25,9 @@ function canEditCorrection(user, solicitud) {
   return solicitud.estado === STATUS.CORRECTION && solicitud.creado_por === user.id;
 }
 
-function canCompletePurchase(user, solicitud) {
+function canCompletePurchase(user, solicitud, data) {
   return solicitud.estado === STATUS.APPROVED
-    && solicitud.creado_por === user.id
+    && canSeePurchaseModule(user, data)
     && isPurchaseRequest(solicitud)
     && solicitud.ejecucion_estado !== "Completada";
 }
@@ -39,11 +40,13 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
   }
 
   const files = data.archivos.filter((file) => file.solicitud_id === solicitud.id);
-  const comments = data.comentarios.filter((comment) => comment.solicitud_id === solicitud.id);
+  const comments = data.comentarios
+    .filter((comment) => comment.solicitud_id === solicitud.id)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   const approvalRows = approvalsForRequest(data, solicitud.id);
   const canDecide = canApprove(user, solicitud, data);
-  const canComplete = canCompletePurchase(user, solicitud);
-  const showPurchaseExecution = isPurchaseRequest(solicitud) && solicitud.estado === STATUS.APPROVED;
+  const canComplete = canCompletePurchase(user, solicitud, data);
+  const showPurchaseExecution = canSeePurchaseModule(user, data) && isPurchaseRequest(solicitud) && solicitud.estado === STATUS.APPROVED;
   const auditTrail = user.rol === ROLES.ADMIN
     ? (data.auditoria || []).filter((entry) => entry.solicitud_id === solicitud.id)
     : [];
@@ -166,15 +169,19 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
         `).join("") : "<li class='empty-state'>No hay aprobadores asignados.</li>"}
       </ul>
     </section>
-    <section class="grid">
-      <h3>Comentarios</h3>
-      <ul class="timeline">
-        ${comments.length ? comments.map((comment) => `<li class="timeline-item"><strong>${escapeHtml(comment.usuario?.nombre || profileName(data, comment.usuario_id))}</strong><p>${escapeHtml(comment.comentario)}</p><small>${formatDate(comment.created_at)}</small></li>`).join("") : "<li class='empty-state'>Sin comentarios.</li>"}
-      </ul>
-      ${canDecide ? "" : `<form class="form" data-comment-form>
-        <label class="field"><span>Agregar comentario</span><textarea class="form-control" name="comentario" rows="2" required></textarea></label>
-        <button class="button secondary btn btn-outline-secondary" type="submit">Agregar comentario</button>
-      </form>`}
+    <section class="chat-panel">
+      <div class="compact-section-header">
+        <h3>Conversacion</h3>
+        <span>${comments.length ? `${comments.length} mensaje${comments.length === 1 ? "" : "s"}` : "Sin mensajes"}</span>
+      </div>
+      <div class="chat-thread" data-comment-list>
+        ${comments.length ? comments.map((comment) => commentBubble(comment, data, user)).join("") : "<p class='chat-empty' data-comment-empty>Inicia la conversacion con un mensaje claro para el equipo.</p>"}
+      </div>
+      <form class="chat-composer" data-comment-form>
+        <label class="visually-hidden" for="comentario-chat-${escapeAttr(solicitud.id)}">Escribir mensaje</label>
+        <textarea id="comentario-chat-${escapeAttr(solicitud.id)}" class="form-control" name="comentario" rows="1" required placeholder="Escribe un mensaje para esta solicitud..."></textarea>
+        <button class="button btn btn-primary" type="submit">Enviar</button>
+      </form>
     </section>
     ${user.rol === ROLES.ADMIN ? `
       <section class="grid">
@@ -207,10 +214,6 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
       </section>
     ` : ""}
   `;
-
-  if (view.querySelector("[data-action-form]")) {
-    view.querySelector("[data-comment-form]")?.remove();
-  }
 
   view.querySelectorAll("[data-download]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -247,11 +250,29 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
 
   view.querySelector("[data-comment-form]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await dataService.addComment(solicitud.id, user.id, form.get("comentario"));
-    toast("Comentario agregado.", "success");
-    closeModal();
-    await onChange();
+    const formElement = event.currentTarget;
+    const submitter = event.submitter;
+    const form = new FormData(formElement);
+    const message = String(form.get("comentario") || "").trim();
+    if (!message) return;
+    submitter.disabled = true;
+    try {
+      await dataService.addComment(solicitud.id, user.id, message);
+      view.querySelector("[data-comment-empty]")?.remove();
+      view.querySelector("[data-comment-list]")?.insertAdjacentHTML("beforeend", commentBubble({
+        usuario_id: user.id,
+        usuario: user,
+        comentario: message,
+        created_at: new Date().toISOString()
+      }, data, user));
+      formElement.reset();
+      toast("Mensaje enviado.", "success");
+      await onChange();
+    } catch (error) {
+      toast(error.message || "No fue posible enviar el mensaje.", "error");
+    } finally {
+      submitter.disabled = false;
+    }
   });
 
   view.querySelector("[data-action-form]")?.addEventListener("submit", async (event) => {
@@ -456,6 +477,26 @@ function profileName(data, id) {
   return profile ? `${profile.nombre} ${profile.apellido}` : "Usuario";
 }
 
+function commentBubble(comment, data, user) {
+  const isMine = comment.usuario_id === user.id;
+  const name = isMine
+    ? "Tu"
+    : comment.usuario
+      ? `${comment.usuario.nombre || ""} ${comment.usuario.apellido || ""}`.trim() || comment.usuario.correo
+      : profileName(data, comment.usuario_id);
+  return `
+    <article class="chat-message ${isMine ? "is-mine" : "is-other"}">
+      <div class="chat-bubble">
+        <div class="chat-meta">
+          <strong>${escapeHtml(name)}</strong>
+          <time>${formatDate(comment.created_at)}</time>
+        </div>
+        <p>${escapeHtml(comment.comentario)}</p>
+      </div>
+    </article>
+  `;
+}
+
 function approvalsForRequest(data, solicitudId) {
   return data.solicitud_aprobadores
     .filter((item) => item.solicitud_id === solicitudId)
@@ -464,14 +505,6 @@ function approvalsForRequest(data, solicitudId) {
 
 function assignmentForUser(data, solicitudId, userId) {
   return data.solicitud_aprobadores.find((item) => item.solicitud_id === solicitudId && item.usuario_id === userId);
-}
-
-function isPurchaseRequest(solicitud) {
-  return normalizePurchaseText(`${solicitud.tipo?.nombre || ""} ${solicitud.departamento?.nombre || ""}`).includes("compra");
-}
-
-function normalizePurchaseText(value = "") {
-  return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
 function executionDuration(solicitud) {

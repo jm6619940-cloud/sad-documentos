@@ -246,7 +246,6 @@ export const dataService = {
       p_comentario: cleanText(comentario)
     });
     if (error) throw error;
-    await this.audit(user.id, solicitudId, "COMPRA_COMPLETADA", "Orden de compra marcada como completada.");
   },
 
   async upsertCatalog(table, values) {
