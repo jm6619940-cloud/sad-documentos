@@ -1,5 +1,5 @@
 import { pageTitle } from "../components/layout.js";
-import { dataService } from "../services/dataService.js?v=20260708-12";
+import { dataService } from "../services/dataService.js?v=20260709-8";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 

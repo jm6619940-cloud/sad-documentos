@@ -156,6 +156,13 @@ function pushNotificationText(notification: NotificationRecord, requestInfo: Req
 }
 
 function pushBody(notification: NotificationRecord, requestInfo: RequestInfo | null) {
+  if (notification.titulo.toLowerCase().includes("mensaje")) {
+    const chat = parseChatNotification(notification.mensaje);
+    const title = requestInfo?.titulo || chat.requestTitle || "Solicitud";
+    const preview = chat.message ? `\n${chat.message}` : "";
+    return chat.actor ? `${chat.actor}: ${title}${preview}` : `${title}${preview}`;
+  }
+
   if (!requestInfo) return cleanMessage(notification.mensaje) || "";
 
   const actor = actorName(notification, requestInfo);
@@ -177,6 +184,7 @@ function actorName(notification: NotificationRecord, requestInfo: RequestInfo) {
 
 function pushTitle(notification: NotificationRecord) {
   const title = notification.titulo.toLowerCase();
+  if (title.includes("mensaje")) return "Nuevo mensaje en solicitud";
   if (title.includes("asignada")) return "Nueva solicitud asignada";
   if (title.includes("corregida")) return "Solicitud corregida";
   if (title.includes("correccion")) return "Correccion solicitada";
@@ -208,6 +216,18 @@ function friendlyStatus(status: string) {
 
 function cleanMessage(message: string) {
   return message.replace(/AUT-\d{4}-\d{6}:?\s*/i, "").trim();
+}
+
+function parseChatNotification(message: string) {
+  const [summary = "", ...rest] = `${message || ""}`.split(/\n+/);
+  const requestTitle = cleanMessage(summary).replace(/\s+requiere tu revision\.?$/i, "").trim();
+  const body = rest.join(" ").trim();
+  const match = body.match(/^([^:]{1,90}):\s*(.+)$/);
+  return {
+    requestTitle,
+    actor: match?.[1]?.trim() || "",
+    message: match?.[2]?.trim() || body
+  };
 }
 
 function json(payload: unknown, status = 200) {

@@ -1,5 +1,5 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260708-12";
+import { dataService } from "./dataService.js?v=20260709-8";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
@@ -252,6 +252,13 @@ function userNotifications(data, user) {
 
 function notificationBody(notification) {
   if (!notification) return "";
+  if (`${notification.titulo || ""}`.toLowerCase().includes("mensaje")) {
+    const chat = parseChatNotification(notification.mensaje);
+    const request = requestFromNotification(notification);
+    const requestTitle = request?.titulo || chat.requestTitle || "Solicitud";
+    const preview = chat.message ? `\n${chat.message}` : "";
+    return chat.actor ? `${chat.actor}: ${requestTitle}${preview}` : `${requestTitle}${preview}`;
+  }
   const request = requestFromNotification(notification);
   if (request?.titulo) return notificationActionText(notification, request);
   const message = stripRequestCode(notification.mensaje);
@@ -267,6 +274,7 @@ function notificationText(notification) {
 
 function notificationTitle(notification) {
   const title = `${notification?.titulo || ""}`.toLowerCase();
+  if (title.includes("mensaje")) return "Nuevo mensaje en solicitud";
   if (title.includes("asignada")) return "Nueva solicitud asignada";
   if (title.includes("corregida")) return "Solicitud corregida";
   if (title.includes("correccion")) return "Correccion solicitada";
@@ -319,6 +327,18 @@ function notificationStatus(notification, request) {
 
 function stripRequestCode(text = "") {
   return text.replace(/AUT-\d{4}-\d{6}:?\s*/i, "").trim();
+}
+
+function parseChatNotification(message = "") {
+  const [summary = "", ...rest] = String(message).split(/\n+/);
+  const requestTitle = stripRequestCode(summary).replace(/\s+requiere tu revision\.?$/i, "").trim();
+  const body = rest.join(" ").trim();
+  const match = body.match(/^([^:]{1,90}):\s*(.+)$/);
+  return {
+    requestTitle,
+    actor: match?.[1]?.trim() || "",
+    message: match?.[2]?.trim() || body
+  };
 }
 
 function extractRequestCode(text) {

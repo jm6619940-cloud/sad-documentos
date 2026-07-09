@@ -223,9 +223,14 @@ export const dataService = {
 
   async addComment(solicitudId, userId, comentario) {
     const supabase = await getSupabase();
-    const { error } = await supabase.from("comentarios").insert({ solicitud_id: solicitudId, usuario_id: userId, comentario });
+    const { data, error } = await supabase
+      .from("comentarios")
+      .insert({ solicitud_id: solicitudId, usuario_id: userId, comentario })
+      .select("*, usuario:profiles(*)")
+      .single();
     if (error) throw error;
     await this.audit(userId, solicitudId, "COMENTARIO", "Comentario agregado.");
+    return data;
   },
 
   async actOnRequest(solicitudId, user, action, comentario) {

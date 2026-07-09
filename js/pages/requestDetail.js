@@ -1,6 +1,7 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260709-4";
+import { dataService } from "../services/dataService.js?v=20260709-8";
+import { getSupabase } from "../services/supabaseClient.js";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { closeModal } from "../components/modal.js?v=20260708-12";
 import { icon } from "../components/icons.js";
@@ -172,7 +173,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     <section class="chat-panel">
       <div class="compact-section-header">
         <h3>Conversacion</h3>
-        <span>${comments.length ? `${comments.length} mensaje${comments.length === 1 ? "" : "s"}` : "Sin mensajes"}</span>
+        <span data-comment-count>${comments.length ? `${comments.length} mensaje${comments.length === 1 ? "" : "s"}` : "Sin mensajes"}</span>
       </div>
       <div class="chat-thread" data-comment-list>
         ${comments.length ? comments.map((comment) => commentBubble(comment, data, user)).join("") : "<p class='chat-empty' data-comment-empty>Inicia la conversacion con un mensaje claro para el equipo.</p>"}
@@ -214,6 +215,23 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
       </section>
     ` : ""}
   `;
+
+  const commentList = view.querySelector("[data-comment-list]");
+  const commentCount = view.querySelector("[data-comment-count]");
+  const renderedCommentIds = new Set(comments.map((comment) => comment.id).filter(Boolean));
+  updateChatScroll(commentList);
+
+  const stopCommentRealtime = subscribeRequestComments({
+    solicitud,
+    data,
+    user,
+    renderedCommentIds,
+    onNewComment: (comment) => {
+      appendCommentToThread({ comment, data, user, commentList, commentCount, renderedCommentIds });
+      onChange({ silent: true }).catch(() => {});
+    }
+  });
+  cleanupWhenDetached(view, stopCommentRealtime);
 
   view.querySelectorAll("[data-download]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -257,17 +275,11 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     if (!message) return;
     submitter.disabled = true;
     try {
-      await dataService.addComment(solicitud.id, user.id, message);
-      view.querySelector("[data-comment-empty]")?.remove();
-      view.querySelector("[data-comment-list]")?.insertAdjacentHTML("beforeend", commentBubble({
-        usuario_id: user.id,
-        usuario: user,
-        comentario: message,
-        created_at: new Date().toISOString()
-      }, data, user));
+      const comment = await dataService.addComment(solicitud.id, user.id, message);
+      appendCommentToThread({ comment, data, user, commentList, commentCount, renderedCommentIds });
       formElement.reset();
       toast("Mensaje enviado.", "success");
-      await onChange();
+      await onChange({ silent: true });
     } catch (error) {
       toast(error.message || "No fue posible enviar el mensaje.", "error");
     } finally {
@@ -426,6 +438,87 @@ function closeFilePreview() {
   window.removeEventListener("keydown", root.handleFilePreviewKeydown, true);
   root.remove();
   document.body.classList.remove("file-preview-open");
+}
+
+function appendCommentToThread({ comment, data, user, commentList, commentCount, renderedCommentIds }) {
+  if (!commentList || !comment) return;
+  const key = comment.id || `${comment.usuario_id}-${comment.created_at}-${comment.comentario}`;
+  if (renderedCommentIds.has(key)) return;
+
+  const normalized = {
+    ...comment,
+    usuario: comment.usuario || data.profiles.find((profile) => profile.id === comment.usuario_id) || null
+  };
+
+  renderedCommentIds.add(key);
+  if (comment.id && !data.comentarios.some((item) => item.id === comment.id)) {
+    data.comentarios.push(normalized);
+  }
+
+  commentList.querySelector("[data-comment-empty]")?.remove();
+  commentList.insertAdjacentHTML("beforeend", commentBubble(normalized, data, user));
+  updateCommentCount(commentCount, commentList);
+  updateChatScroll(commentList);
+}
+
+function updateCommentCount(commentCount, commentList) {
+  if (!commentCount || !commentList) return;
+  const total = commentList.querySelectorAll(".chat-message").length;
+  commentCount.textContent = total ? `${total} mensaje${total === 1 ? "" : "s"}` : "Sin mensajes";
+}
+
+function updateChatScroll(commentList) {
+  if (!commentList) return;
+  requestAnimationFrame(() => {
+    commentList.scrollTop = commentList.scrollHeight;
+  });
+}
+
+function subscribeRequestComments({ solicitud, data, user, renderedCommentIds, onNewComment }) {
+  let channel = null;
+  let disposed = false;
+
+  getSupabase()
+    .then((supabase) => {
+      if (disposed) return;
+      channel = supabase
+        .channel(`sad-chat-${solicitud.id}-${crypto.randomUUID()}`)
+        .on("postgres_changes", {
+          event: "INSERT",
+          schema: "public",
+          table: "comentarios",
+          filter: `solicitud_id=eq.${solicitud.id}`
+        }, (payload) => {
+          const comment = {
+            ...payload.new,
+            usuario: data.profiles.find((profile) => profile.id === payload.new.usuario_id) || null
+          };
+          if (comment.id && renderedCommentIds.has(comment.id)) return;
+          onNewComment(comment);
+          if (comment.usuario_id !== user.id) toast("Nuevo mensaje recibido.", "info");
+        })
+        .subscribe();
+    })
+    .catch((error) => {
+      console.warn("No se pudo iniciar el chat en tiempo real.", error);
+    });
+
+  return async () => {
+    disposed = true;
+    if (!channel) return;
+    const supabase = await getSupabase();
+    await supabase.removeChannel(channel);
+    channel = null;
+  };
+}
+
+function cleanupWhenDetached(element, cleanup) {
+  const observer = new MutationObserver(() => {
+    if (document.body.contains(element)) return;
+    observer.disconnect();
+    cleanup();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 async function getPdfJs() {
