@@ -2,7 +2,7 @@ import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260
 import { closeModal, openModal } from "./components/modal.js?v=20260708-12";
 import { toast } from "./components/toast.js?v=20260708-12";
 import { dataService } from "./services/dataService.js?v=20260708-12";
-import { renderDashboard } from "./pages/dashboard.js?v=20260708-12";
+import { renderDashboard } from "./pages/dashboard.js?v=20260709-2";
 import { renderNewRequest } from "./pages/newRequest.js?v=20260708-12";
 import { renderRequestsTable } from "./pages/requestsTable.js?v=20260709-1";
 import { renderRequestDetail } from "./pages/requestDetail.js?v=20260708-12";
@@ -241,7 +241,7 @@ function render() {
 }
 
 function renderPage() {
-  const context = { user: state.user, data: state.data, refresh, navigate };
+  const context = { user: state.user, data: state.data, refresh, navigate, openRequest: openRequestFromNotification };
   if (state.route === "new-request") return renderNewRequest(context);
   if (state.route === "my-requests") return renderRequestsTable({ ...context, mode: "my-requests" });
   if (state.route === "pending") return renderRequestsTable({ ...context, mode: "pending" });

@@ -1,9 +1,9 @@
 import { ROLES, STATUS } from "../utils/constants.js";
 import { formatDate } from "../utils/format.js";
 import { pageTitle } from "../components/layout.js";
-import { escapeHtml } from "../utils/security.js";
+import { escapeAttr, escapeHtml } from "../utils/security.js";
 
-export function renderDashboard({ user, data, navigate }) {
+export function renderDashboard({ user, data, navigate, openRequest }) {
   const page = document.createElement("div");
   page.className = "grid";
   const myRequests = data.solicitudes.filter((item) => item.creado_por === user.id);
@@ -45,7 +45,7 @@ export function renderDashboard({ user, data, navigate }) {
           <thead><tr><th>Codigo</th><th>Titulo</th><th>Estado</th><th>Actualizacion</th></tr></thead>
           <tbody>
             ${data.solicitudes.slice(0, 6).map((item) => `
-              <tr>
+              <tr class="clickable-row" data-dashboard-request="${escapeAttr(item.id)}" tabindex="0">
                 <td data-label="Codigo">${escapeHtml(item.codigo)}</td>
                 <td data-label="Titulo">${escapeHtml(item.titulo)}</td>
                 <td data-label="Estado"><span class="badge ${escapeHtml(item.estado.split(" ")[0])}">${escapeHtml(item.estado)}</span></td>
@@ -58,6 +58,15 @@ export function renderDashboard({ user, data, navigate }) {
     </section>
   `);
   page.querySelector("[data-route]")?.addEventListener("click", () => navigate("history"));
+  page.querySelectorAll("[data-dashboard-request]").forEach((row) => {
+    const open = () => openRequest?.(row.dataset.dashboardRequest);
+    row.addEventListener("click", open);
+    row.addEventListener("keydown", (event) => {
+      if (!["Enter", " "].includes(event.key)) return;
+      event.preventDefault();
+      open();
+    });
+  });
   return page;
 }
 
