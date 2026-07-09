@@ -448,6 +448,10 @@ textarea:focus {
   color: var(--text);
 }
 
+.metric-compact {
+  min-height: 82px;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -753,6 +757,14 @@ td {
   overflow: visible;
 }
 
+.status-stack {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
 .request-cell-approvers {
   overflow: hidden;
 }
@@ -969,6 +981,14 @@ tr:hover td {
 .correction-panel {
   border-color: #bfdbfe;
   background: var(--surface-muted);
+}
+
+.execution-panel {
+  border-color: rgba(15, 143, 97, 0.35);
+}
+
+.execution-panel form {
+  margin-top: 10px;
 }
 
 .correction-files {

@@ -1,6 +1,6 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260708-12";
+import { dataService } from "../services/dataService.js?v=20260709-3";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { closeModal } from "../components/modal.js?v=20260708-12";
 import { icon } from "../components/icons.js";
@@ -24,6 +24,13 @@ function canEditCorrection(user, solicitud) {
   return solicitud.estado === STATUS.CORRECTION && solicitud.creado_por === user.id;
 }
 
+function canCompletePurchase(user, solicitud) {
+  return solicitud.estado === STATUS.APPROVED
+    && solicitud.creado_por === user.id
+    && isPurchaseRequest(solicitud)
+    && solicitud.ejecucion_estado !== "Completada";
+}
+
 export function renderRequestDetail({ solicitud, data, user, onChange }) {
   if (!canSee(user, solicitud, data)) {
     const denied = document.createElement("p");
@@ -35,6 +42,8 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
   const comments = data.comentarios.filter((comment) => comment.solicitud_id === solicitud.id);
   const approvalRows = approvalsForRequest(data, solicitud.id);
   const canDecide = canApprove(user, solicitud, data);
+  const canComplete = canCompletePurchase(user, solicitud);
+  const showPurchaseExecution = isPurchaseRequest(solicitud) && solicitud.estado === STATUS.APPROVED;
   const auditTrail = user.rol === ROLES.ADMIN
     ? (data.auditoria || []).filter((entry) => entry.solicitud_id === solicitud.id)
     : [];
@@ -49,6 +58,28 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
       <div class="detail-box"><strong>Solicitante</strong><p>${textOrDash(`${solicitud.creador?.nombre || ""} ${solicitud.creador?.apellido || ""}`)}</p></div>
       <div class="detail-box"><strong>Fecha</strong><p>${formatDate(solicitud.created_at)}</p></div>
     </div>
+    ${showPurchaseExecution ? `
+      <section class="panel execution-panel">
+        <div class="panel-header compact-section-header">
+          <h3>Ejecucion de compra</h3>
+          <span class="badge ${solicitud.ejecucion_estado === "Completada" ? "Aprobado" : "Pendiente"}">${escapeHtml(solicitud.ejecucion_estado || "Pendiente")}</span>
+        </div>
+        <div class="detail-grid detail-grid-compact">
+          <div class="detail-box"><strong>Aprobada</strong><p>${formatDate(solicitud.fecha_aprobacion || solicitud.updated_at)}</p></div>
+          <div class="detail-box"><strong>Tiempo de ejecucion</strong><p>${escapeHtml(executionDuration(solicitud))}</p></div>
+          ${solicitud.fecha_completada ? `<div class="detail-box"><strong>Completada</strong><p>${formatDate(solicitud.fecha_completada)}</p></div>` : ""}
+          ${solicitud.comentario_completado ? `<div class="detail-box"><strong>Comentario final</strong><p>${escapeHtml(solicitud.comentario_completado)}</p></div>` : ""}
+        </div>
+        ${canComplete ? `
+          <form class="form" data-complete-purchase-form>
+            <label class="field"><span>Comentario de cierre</span><textarea class="form-control" name="comentario" rows="2" placeholder="Ejemplo: mercancia recibida, factura validada, servicio entregado."></textarea></label>
+            <div class="toolbar">
+              <button class="button success btn btn-success" type="submit">${icon("check")} Marcar compra completada</button>
+            </div>
+          </form>
+        ` : ""}
+      </section>
+    ` : ""}
     <section>
       <h3>${escapeHtml(solicitud.titulo)}</h3>
       <p>${escapeHtml(solicitud.descripcion || "Sin descripcion.")}</p>
@@ -233,6 +264,26 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     await onChange();
   });
 
+  view.querySelector("[data-complete-purchase-form]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitter = event.submitter;
+    const form = new FormData(event.currentTarget);
+    submitter.disabled = true;
+    const previousLabel = submitter.innerHTML;
+    submitter.textContent = "Guardando...";
+    try {
+      await dataService.completePurchaseRequest(solicitud.id, form.get("comentario"), user);
+      toast("Compra marcada como completada.", "success");
+      closeModal();
+      await onChange();
+    } catch (error) {
+      toast(error.message || "No fue posible completar la compra.", "error");
+    } finally {
+      submitter.innerHTML = previousLabel;
+      submitter.disabled = false;
+    }
+  });
+
   const correctionForm = view.querySelector("[data-correction-form]");
   correctionForm?.elements.files.addEventListener("change", () => {
     const list = view.querySelector("[data-correction-selected-files]");
@@ -413,6 +464,27 @@ function approvalsForRequest(data, solicitudId) {
 
 function assignmentForUser(data, solicitudId, userId) {
   return data.solicitud_aprobadores.find((item) => item.solicitud_id === solicitudId && item.usuario_id === userId);
+}
+
+function isPurchaseRequest(solicitud) {
+  return normalizePurchaseText(`${solicitud.tipo?.nombre || ""} ${solicitud.departamento?.nombre || ""}`).includes("compra");
+}
+
+function normalizePurchaseText(value = "") {
+  return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function executionDuration(solicitud) {
+  const start = solicitud.fecha_aprobacion || solicitud.updated_at;
+  if (!start) return "-";
+  const end = solicitud.fecha_completada || new Date().toISOString();
+  const minutes = Math.max(0, Math.round((new Date(end) - new Date(start)) / 60000));
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const mins = minutes % 60;
+  if (days) return `${days} dia${days === 1 ? "" : "s"} ${hours} h`;
+  if (hours) return `${hours} h ${mins} min`;
+  return `${mins} min`;
 }
 
 function shortUserAgent(value = "") {

@@ -238,6 +238,17 @@ export const dataService = {
     if (error) throw error;
   },
 
+  async completePurchaseRequest(solicitudId, comentario, user) {
+    if (!user?.id) throw new Error("No se encontro una sesion valida.");
+    const supabase = await getSupabase();
+    const { error } = await supabase.rpc("completar_solicitud_compra", {
+      p_id: solicitudId,
+      p_comentario: cleanText(comentario)
+    });
+    if (error) throw error;
+    await this.audit(user.id, solicitudId, "COMPRA_COMPLETADA", "Orden de compra marcada como completada.");
+  },
+
   async upsertCatalog(table, values) {
     const supabase = await getSupabase();
     const { error } = await supabase.from(table).upsert(values);
