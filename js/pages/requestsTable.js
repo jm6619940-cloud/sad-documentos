@@ -6,12 +6,16 @@ import { openModal } from "../components/modal.js";
 import { renderRequestDetail } from "./requestDetail.js?v=20260708-12";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
+const TABLE_STATE = new Map();
+const PAGE_SIZE_OPTIONS = [15, 25, 50, 100, "all"];
+
 export function renderRequestsTable({ mode, user, data, refresh }) {
   const isPending = mode === "pending";
   const isHistory = mode === "history";
   const usePriorityFilter = isPending && user.rol === ROLES.APPROVER;
-  let currentPage = 1;
-  let pageSize = 15;
+  const stateKey = `${user.id}:${user.rol}:${mode}`;
+  const tableState = TABLE_STATE.get(stateKey) || { currentPage: 1, pageSize: 15 };
+  TABLE_STATE.set(stateKey, tableState);
   const page = document.createElement("div");
   page.className = "grid";
   page.append(pageTitle(
@@ -28,17 +32,20 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
             ? `<select class="form-select" data-filter="prioridad"><option value="">Prioridad</option>${unique(data.solicitudes.map((item) => item.prioridad)).map(option).join("")}</select>`
             : `<select class="form-select" data-filter="estado"><option value="">Estado</option>${unique(data.solicitudes.map((item) => item.estado)).map(option).join("")}</select>`}
           <select class="form-select" data-filter="tipo"><option value="">Tipo</option>${data.tipos_documento.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.nombre)}</option>`).join("")}</select>
+          <select class="form-select" data-filter="dias">
+            <option value="">Todos los dias</option>
+            <option value="today">Hoy</option>
+            <option value="7">Ultimos 7 dias</option>
+            <option value="30">Ultimos 30 dias</option>
+            <option value="month">Este mes</option>
+          </select>
         </div>
       </div>
       <div class="table-controls">
         <label class="page-size-control">
           <span>Mostrar</span>
           <select class="form-select" data-page-size>
-            <option value="15" selected>15</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="all">Todas</option>
+            ${PAGE_SIZE_OPTIONS.map((value) => `<option value="${value}" ${String(tableState.pageSize) === String(value) ? "selected" : ""}>${value === "all" ? "Todas" : value}</option>`).join("")}
           </select>
         </label>
       </div>
@@ -49,11 +56,12 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
   const renderRows = () => {
     const filters = Object.fromEntries([...page.querySelectorAll("[data-filter]")].map((input) => [input.dataset.filter, input.value]));
     const rows = filteredRows({ mode, user, data, filters });
+    const pageSize = tableState.pageSize;
     const totalPages = pageSize === "all" ? 1 : Math.max(1, Math.ceil(rows.length / pageSize));
-    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+    tableState.currentPage = clamp(tableState.currentPage, 1, totalPages);
     const visibleRows = pageSize === "all"
       ? rows
-      : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+      : rows.slice((tableState.currentPage - 1) * pageSize, tableState.currentPage * pageSize);
     const gridClass = isPending || isHistory ? "request-grid-wide" : "request-grid-own";
     page.querySelector("[data-table]").innerHTML = `
       <div class="request-list ${gridClass}" role="table">
@@ -84,7 +92,7 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
           `).join("") || `<div class="empty-state">No hay resultados.</div>`}
         </div>
       </div>
-      ${paginationMarkup(rows.length, visibleRows.length, currentPage, totalPages, pageSize)}
+      ${paginationMarkup(rows.length, visibleRows.length, tableState.currentPage, totalPages, pageSize)}
     `;
     page.querySelectorAll("[data-detail]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -104,16 +112,16 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
     });
     page.querySelectorAll("[data-page]").forEach((button) => {
       button.addEventListener("click", () => {
-        currentPage = Number(button.dataset.page);
+        tableState.currentPage = Number(button.dataset.page);
         renderRows();
       });
     });
     page.querySelector("[data-page-prev]")?.addEventListener("click", () => {
-      currentPage -= 1;
+      tableState.currentPage -= 1;
       renderRows();
     });
     page.querySelector("[data-page-next]")?.addEventListener("click", () => {
-      currentPage += 1;
+      tableState.currentPage += 1;
       renderRows();
     });
   };
@@ -124,13 +132,17 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
     openModal(renderRequestDetail({ solicitud, data, user, onChange: refresh }), { title: solicitud.codigo });
   };
 
-  page.querySelectorAll("[data-filter]").forEach((input) => input.addEventListener("input", () => {
-    currentPage = 1;
+  const refreshFilteredRows = () => {
+    tableState.currentPage = 1;
     renderRows();
-  }));
+  };
+  page.querySelectorAll("[data-filter]").forEach((input) => {
+    input.addEventListener("input", refreshFilteredRows);
+    input.addEventListener("change", refreshFilteredRows);
+  });
   page.querySelector("[data-page-size]").addEventListener("change", (event) => {
-    pageSize = event.target.value === "all" ? "all" : Number(event.target.value);
-    currentPage = 1;
+    tableState.pageSize = event.target.value === "all" ? "all" : Number(event.target.value);
+    tableState.currentPage = 1;
     renderRows();
   });
   renderRows();
@@ -146,6 +158,7 @@ function filteredRows({ mode, user, data, filters }) {
     if (filters.estado && item.estado !== filters.estado) return false;
     if (filters.prioridad && item.prioridad !== filters.prioridad) return false;
     if (filters.tipo && item.tipo_documento_id !== filters.tipo) return false;
+    if (filters.dias && !matchesDayFilter(item.created_at, filters.dias)) return false;
     if (filters.text) {
       const haystack = normalize(`${item.codigo} ${item.titulo} ${item.descripcion} ${item.creador?.nombre || ""} ${item.departamento?.nombre || ""}`);
       if (!haystack.includes(normalize(filters.text))) return false;
@@ -190,6 +203,31 @@ function unique(items) {
 
 function option(value) {
   return `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`;
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(Number(value) || min, min), max);
+}
+
+function matchesDayFilter(value, filter) {
+  if (!value) return false;
+  const date = new Date(value);
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+
+  if (filter === "today") return date >= start;
+  if (filter === "month") {
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    return date >= monthStart;
+  }
+
+  const days = Number(filter);
+  if (!days) return true;
+  const since = new Date(now);
+  since.setDate(now.getDate() - (days - 1));
+  since.setHours(0, 0, 0, 0);
+  return date >= since;
 }
 
 function paginationMarkup(totalRows, visibleRows, currentPage, totalPages, pageSize) {

@@ -420,10 +420,14 @@ textarea:focus {
 }
 
 .card {
+  --bs-card-bg: var(--surface);
+  --bs-card-color: var(--text);
+  --bs-card-border-color: var(--line);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  color: var(--text);
 }
 
 .metric {
@@ -441,6 +445,7 @@ textarea:focus {
 
 .metric strong {
   font-size: 1.7rem;
+  color: var(--text);
 }
 
 .panel {
@@ -531,10 +536,33 @@ td .button {
 }
 
 table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--text);
+  --bs-table-border-color: var(--line);
+  --bs-table-hover-bg: var(--surface-muted);
+  --bs-table-hover-color: var(--text);
+  --bs-table-striped-bg: var(--surface-muted);
+  --bs-table-striped-color: var(--text);
   width: 100%;
   border-collapse: collapse;
   min-width: 0;
   table-layout: fixed;
+  color: var(--text);
+}
+
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--text);
+  --bs-table-border-color: var(--line);
+  --bs-table-hover-bg: var(--surface-muted);
+  --bs-table-hover-color: var(--text);
+  color: var(--text);
+}
+
+.table > :not(caption) > * > * {
+  background-color: transparent;
+  border-bottom-color: var(--line);
+  color: var(--text);
 }
 
 .request-table {
