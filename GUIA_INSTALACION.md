@@ -229,7 +229,7 @@ Limpia cache del navegador o cambia el parametro de version en `index.html`.
 
 Verifica el bucket `documentos`, el tamano maximo, el tipo MIME y las politicas de Storage.
 
-### No llegan notificaciones
+### No llegan notificacio
 
 Revisa permisos del navegador, HTTPS, service worker, claves VAPID, Edge Function y webhook.
 
