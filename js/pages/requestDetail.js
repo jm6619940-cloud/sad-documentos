@@ -1,6 +1,6 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260710-6";
+import { dataService } from "../services/dataService.js?v=20260710-7";
 import { getSupabase } from "../services/supabaseClient.js";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { closeModal, openModal } from "../components/modal.js?v=20260708-12";
@@ -588,7 +588,7 @@ function startSigningMode({ root, file, source, signing }) {
       } else {
         await signImageAtPoint({ file, source, signing, placement });
       }
-      toast("Documento firmado. El archivo original fue reemplazado.", "success");
+      toast("Firma preparada. Pulsa Aprobar para publicar el documento firmado.", "success");
       await signing.onSigned?.();
     } catch (error) {
       toast(error.message || "No fue posible firmar el documento.", "error");
@@ -687,7 +687,7 @@ function enableSignatureDrag(placement) {
 }
 
 async function signPdfAtPoint({ file, source, signing, placement }) {
-  const { PDFDocument, StandardFonts, rgb } = await getPdfLib();
+  const { PDFDocument, degrees } = await getPdfLib();
   const pdfBytes = await fetchBytes(source);
   const pdfDoc = await PDFDocument.load(pdfBytes);
   const page = pdfDoc.getPages()[placement.pageIndex];
@@ -695,29 +695,22 @@ async function signPdfAtPoint({ file, source, signing, placement }) {
 
   const signatureBytes = dataUrlToBytes(signing.signature.firma_data_url);
   const signatureImage = await pdfDoc.embedPng(signatureBytes);
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const { width: pageWidth, height: pageHeight } = page.getSize();
   const pdfRect = pdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight });
   const imageWidth = pdfRect.width;
   const imageHeight = pdfRect.height;
   const x = clamp(pdfRect.x, 0, Math.max(0, pageWidth - imageWidth));
   const y = clamp(pdfRect.y, 0, Math.max(0, pageHeight - imageHeight));
-  const signer = currentUserName(signing.user);
+  const rotation = normalizePdfRotation(page.getRotation()?.angle || 0);
 
-  page.drawImage(signatureImage, { x, y, width: imageWidth, height: imageHeight });
-  page.drawText(`Firmado por ${signer}`, {
-    x,
-    y: Math.max(10, y - 12),
-    size: 8,
-    font,
-    color: rgb(0.08, 0.12, 0.2)
-  });
+  page.drawImage(signatureImage, rotatedPdfImageOptions({ x, y, width: imageWidth, height: imageHeight, rotation, degrees }));
 
   const signedBytes = await pdfDoc.save();
   const blob = new Blob([signedBytes], { type: "application/pdf" });
-  await dataService.saveSignedDocument({
+  await dataService.saveSignedDraft({
     solicitudId: signing.solicitud.id,
     sourceFile: file,
+    userId: signing.user.id,
     blob,
     extension: "pdf",
     mimeType: "application/pdf"
@@ -758,6 +751,23 @@ function pdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight }) 
   };
 }
 
+function normalizePdfRotation(value) {
+  return ((Number(value) % 360) + 360) % 360;
+}
+
+function rotatedPdfImageOptions({ x, y, width, height, rotation, degrees }) {
+  if (rotation === 180) {
+    return { x: x + width, y: y + height, width, height, rotate: degrees(180) };
+  }
+  if (rotation === 90) {
+    return { x: x + height, y, width, height, rotate: degrees(90) };
+  }
+  if (rotation === 270) {
+    return { x, y: y + width, width, height, rotate: degrees(270) };
+  }
+  return { x, y, width, height };
+}
+
 async function signImageAtPoint({ file, source, signing, placement }) {
   const imageUrl = await fetchObjectUrl(source);
   try {
@@ -775,14 +785,12 @@ async function signImageAtPoint({ file, source, signing, placement }) {
     const y = clamp((placement.ratioY * canvas.height) - (signatureHeight / 2), 12, canvas.height - signatureHeight - 28);
 
     context.drawImage(signatureImage, x, y, signatureWidth, signatureHeight);
-    context.font = `${Math.max(14, canvas.width * 0.012)}px sans-serif`;
-    context.fillStyle = "#111827";
-    context.fillText(`Firmado por ${currentUserName(signing.user)}`, x, Math.min(canvas.height - 10, y + signatureHeight + 18));
 
     const blob = await canvasToBlob(canvas, "image/jpeg", 0.88);
-    await dataService.saveSignedDocument({
+    await dataService.saveSignedDraft({
       solicitudId: signing.solicitud.id,
       sourceFile: file,
+      userId: signing.user.id,
       blob,
       extension: "jpg",
       mimeType: "image/jpeg"
@@ -979,10 +987,6 @@ function canvasToBlob(canvas, type, quality) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
-}
-
-function currentUserName(user) {
-  return `${user?.nombre || ""} ${user?.apellido || ""}`.trim() || user?.correo || "Usuario";
 }
 
 function profileName(data, id) {

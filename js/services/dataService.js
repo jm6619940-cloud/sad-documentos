@@ -54,6 +54,10 @@ function storageSignedFileName(originalName, extension) {
   return `${crypto.randomUUID()}-firmado-${safeBase}.${extension}`;
 }
 
+function storageSignatureDraftPath(solicitudId, userId, originalName, extension) {
+  return `${solicitudId}/drafts/${userId}/${storageSignedFileName(originalName, extension)}`;
+}
+
 function validateCreateRequestPayload(values, files, user) {
   const errors = [];
   const approvers = Array.from(new Set(values.aprobadores || [])).filter(Boolean);
@@ -119,13 +123,6 @@ async function deleteRequestFiles(supabase, files) {
   if (storage.error) throw storage.error;
   const deleted = await supabase.from("archivos").delete().in("id", files.map((file) => file.id));
   if (deleted.error) throw deleted.error;
-}
-
-function isMissingStorageObjectError(error) {
-  const message = `${error?.message || error?.error || error?.statusCode || ""}`.toLowerCase();
-  return message.includes("not found")
-    || message.includes("does not exist")
-    || message.includes("404");
 }
 
 export const dataService = {
@@ -310,9 +307,12 @@ export const dataService = {
     if (error) throw error;
   },
 
-  async saveSignedDocument({ solicitudId, sourceFile, blob, extension, mimeType }) {
+  async saveSignedDraft({ solicitudId, sourceFile, userId, blob, extension, mimeType }) {
     if (!solicitudId || !sourceFile?.nombre_original || !blob?.size) {
       throw new Error("No se pudo preparar el documento firmado.");
+    }
+    if (!sourceFile?.id || !userId) {
+      throw new Error("No se pudo vincular la firma con el aprobador y el documento original.");
     }
     if (blob.size > APP_CONFIG.maxFileSize) {
       throw new Error(`El archivo firmado pesa ${Math.round(blob.size / 1024 / 1024)} MB. El limite es ${Math.round(APP_CONFIG.maxFileSize / 1024 / 1024)} MB.`);
@@ -321,7 +321,7 @@ export const dataService = {
     const normalizedExtension = String(extension || "pdf").toLowerCase();
     const contentType = mimeType || STORAGE_MIME_BY_EXTENSION[normalizedExtension] || blob.type || "application/octet-stream";
     const displayName = `firmado-${sourceFile.nombre_original.replace(/\.[^/.]+$/, "")}.${normalizedExtension}`;
-    const path = `${solicitudId}/${storageSignedFileName(sourceFile.nombre_original, normalizedExtension)}`;
+    const path = storageSignatureDraftPath(solicitudId, userId, sourceFile.nombre_original, normalizedExtension);
     const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, blob, {
       upsert: false,
       contentType
@@ -331,8 +331,9 @@ export const dataService = {
       throw new Error(detail ? `Storage rechazo el archivo firmado: ${detail}` : "Storage rechazo el archivo firmado.");
     }
 
-    const insert = await supabase.rpc("registrar_archivo_firmado_solicitud", {
+    const insert = await supabase.rpc("registrar_borrador_firma_documento", {
       p_solicitud_id: solicitudId,
+      p_archivo_original_id: sourceFile.id,
       p_nombre_original: displayName,
       p_nombre_storage: path.split("/").pop(),
       p_mime_type: contentType,
@@ -341,16 +342,6 @@ export const dataService = {
       p_ruta_storage: path
     });
     if (insert.error) throw insert.error;
-
-    if (sourceFile.id && sourceFile.ruta_storage) {
-      const removed = await supabase.storage.from(APP_CONFIG.storageBucket).remove([sourceFile.ruta_storage]);
-      if (removed.error && !isMissingStorageObjectError(removed.error)) throw removed.error;
-      const cleanup = await supabase.rpc("eliminar_archivo_original_firmado", {
-        p_archivo_id: sourceFile.id,
-        p_solicitud_id: solicitudId
-      });
-      if (cleanup.error) throw cleanup.error;
-    }
 
     return insert.data;
   },
