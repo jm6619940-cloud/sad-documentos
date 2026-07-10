@@ -80,9 +80,12 @@ Deno.serve(async (request) => {
   if (!subscriptions?.length) return json({ sent: 0, removed: 0 });
 
   const requestInfo = await findRequestInfo(supabase, notification);
+  const actionTitle = pushTitle(notification);
   const payload = JSON.stringify({
     title: "SAD",
+    iosTitle: actionTitle,
     body: pushNotificationText(notification, requestInfo),
+    iosBody: pushBody(notification, requestInfo) || actionTitle,
     icon: "./assets/icon-192.png?v=20260708-14",
     badge: "./assets/icon-192.png?v=20260708-14",
     notificationId: notification.id,

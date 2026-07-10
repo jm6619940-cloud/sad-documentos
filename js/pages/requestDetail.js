@@ -1,6 +1,6 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260709-8";
+import { dataService } from "../services/dataService.js?v=20260710-6";
 import { getSupabase } from "../services/supabaseClient.js";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { closeModal } from "../components/modal.js?v=20260708-12";
@@ -10,7 +10,9 @@ import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v
 
 const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
+const PDF_LIB_URL = "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm";
 let pdfJsPromise;
+let pdfLibPromise;
 
 function canApprove(user, solicitud, data) {
   if (solicitud.estado !== STATUS.PENDING) return false;
@@ -33,6 +35,12 @@ function canCompletePurchase(user, solicitud, data) {
     && solicitud.ejecucion_estado !== "Completada";
 }
 
+function canSignDocument(user, solicitud, data) {
+  if (solicitud.estado !== STATUS.PENDING) return false;
+  if (user.rol === ROLES.ADMIN) return true;
+  return user.rol === ROLES.APPROVER && Boolean(assignmentForUser(data, solicitud.id, user.id));
+}
+
 export function renderRequestDetail({ solicitud, data, user, onChange }) {
   if (!canSee(user, solicitud, data)) {
     const denied = document.createElement("p");
@@ -46,6 +54,8 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   const approvalRows = approvalsForRequest(data, solicitud.id);
   const canDecide = canApprove(user, solicitud, data);
+  const canSign = canSignDocument(user, solicitud, data);
+  const userSignature = data.firmas_usuarios?.find((item) => item.usuario_id === user.id);
   const canComplete = canCompletePurchase(user, solicitud, data);
   const showPurchaseExecution = canSeePurchaseModule(user, data) && isPurchaseRequest(solicitud) && solicitud.estado === STATUS.APPROVED;
   const auditTrail = user.rol === ROLES.ADMIN
@@ -204,6 +214,9 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     ${canDecide ? `
       <section class="panel">
         <h3>Decision</h3>
+        ${!userSignature ? `
+          <p class="inline-warning">Registra tu firma en Perfil antes de aprobar. Puedes rechazar o solicitar correccion sin firma.</p>
+        ` : ""}
         <form class="form" data-action-form>
           <label class="field"><span>Comentario</span><textarea class="form-control" name="comentario" rows="2"></textarea></label>
           <div class="toolbar">
@@ -236,9 +249,14 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
   view.querySelectorAll("[data-download]").forEach((button) => {
     button.addEventListener("click", async () => {
       const file = files.find((item) => item.id === button.dataset.download);
-      const url = file.data_url || await dataService.signedUrl(file.ruta_storage);
-      if (url) window.open(url, "_blank", "noopener");
-      await dataService.audit(user.id, solicitud.id, "DESCARGA_ARCHIVO", `Descarga de ${file.nombre_original}.`);
+      try {
+        const url = file.data_url || await dataService.signedUrl(file.ruta_storage);
+        if (url) window.open(url, "_blank", "noopener");
+        await dataService.audit(user.id, solicitud.id, "DESCARGA_ARCHIVO", `Descarga de ${file.nombre_original}.`);
+      } catch (error) {
+        if (await cleanupStaleOriginalFile({ error, file, solicitud, files, onChange })) return;
+        toast(error.message || "No fue posible descargar el archivo.", "error");
+      }
     });
   });
 
@@ -255,9 +273,20 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
         openFilePreview(file, url, async () => {
           window.open(url, "_blank", "noopener");
           await dataService.audit(user.id, solicitud.id, "DESCARGA_ARCHIVO", `Descarga de ${file.nombre_original}.`);
+        }, {
+          canSign: canSign && (isPdf(file) || isImage(file)),
+          signature: userSignature,
+          solicitud,
+          user,
+          onSigned: async () => {
+            closeFilePreview();
+            closeModal();
+            await onChange();
+          }
         });
         await dataService.audit(user.id, solicitud.id, "VISTA_PREVIA_ARCHIVO", `Vista previa de ${file.nombre_original}.`);
       } catch (error) {
+        if (await cleanupStaleOriginalFile({ error, file, solicitud, files, onChange })) return;
         toast(error.message || "No fue posible abrir la vista previa.", "error");
       } finally {
         button.innerHTML = previousLabel;
@@ -356,9 +385,39 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
   return view;
 }
 
+async function cleanupStaleOriginalFile({ error, file, solicitud, files, onChange }) {
+  if (!isSignedUrlError(error) || file.nombre_original?.toLowerCase().startsWith("firmado-")) return false;
+  const hasSignedReplacement = files.some((item) => item.solicitud_id === solicitud.id && item.nombre_original?.toLowerCase().startsWith("firmado-"));
+  if (!hasSignedReplacement) return false;
+  try {
+    await dataService.cleanupOriginalSignedFile(solicitud.id, file.id);
+    toast("Se limpio un archivo original que ya fue reemplazado por el firmado.", "info");
+    await onChange();
+    return true;
+  } catch (cleanupError) {
+    console.warn("No se pudo limpiar el archivo original reemplazado.", cleanupError);
+    return false;
+  }
+}
+
+function isSignedUrlError(error) {
+  const message = `${error?.message || error?.error || error?.statusCode || ""}`.toLowerCase();
+  return message.includes("signed")
+    || message.includes("not found")
+    || message.includes("does not exist")
+    || message.includes("400")
+    || message.includes("404");
+}
+
 function previewMarkup(file, source = "") {
   if (!source) return previewUnavailable(file);
-  if (isImage(file)) return `<img class="quicklook-media quicklook-image" src="${escapeAttr(source)}" alt="${escapeAttr(file.nombre_original)}">`;
+  if (isImage(file)) {
+    return `
+      <div class="image-preview-stage" data-image-stage>
+        <img class="quicklook-media quicklook-image" src="${escapeAttr(source)}" alt="${escapeAttr(file.nombre_original)}">
+      </div>
+    `;
+  }
   if (isPdf(file)) return `<div class="pdf-preview" data-pdf-source="${escapeAttr(source)}"><div class="pdf-loading">Cargando PDF...</div></div>`;
   if (isFramePreview(file)) return `<iframe class="quicklook-media quicklook-frame" src="${escapeAttr(source)}" title="${escapeAttr(file.nombre_original)}"></iframe>`;
   return previewUnavailable(file);
@@ -385,7 +444,7 @@ function isFramePreview(file) {
   return ["txt", "csv"].includes(file.extension) || file.mime_type?.startsWith("text/");
 }
 
-function openFilePreview(file, source, onDownload) {
+function openFilePreview(file, source, onDownload, signing = {}) {
   closeFilePreview();
   const root = document.createElement("div");
   root.id = "file-preview-root";
@@ -398,6 +457,7 @@ function openFilePreview(file, source, onDownload) {
           <p>${escapeHtml(file.extension?.toUpperCase() || "Archivo")} · ${formatBytes(file.tamano)}</p>
         </div>
         <div class="quicklook-actions">
+          ${signing.canSign ? `<button class="button btn btn-primary btn-sm" type="button" data-sign-document>${icon("edit")} Agregar firma</button>` : ""}
           <button class="button secondary btn btn-outline-secondary btn-sm" type="button" data-file-preview-download>${icon("download")} Descargar</button>
           <button class="icon-button" type="button" data-file-preview-close aria-label="Cerrar">${icon("x")}</button>
         </div>
@@ -419,6 +479,9 @@ function openFilePreview(file, source, onDownload) {
     item.addEventListener("click", closeFilePreview);
   });
   root.querySelector("[data-file-preview-download]").addEventListener("click", onDownload);
+  root.querySelector("[data-sign-document]")?.addEventListener("click", () => {
+    startSigningMode({ root, file, source, signing });
+  });
   root.handleFilePreviewKeydown = handleKeydown;
   window.addEventListener("keydown", handleKeydown, true);
   document.body.classList.add("file-preview-open");
@@ -429,6 +492,240 @@ function openFilePreview(file, source, onDownload) {
     renderPdfPreview(pdfPreview, source).catch(() => {
       pdfPreview.innerHTML = previewUnavailable(file);
     });
+  }
+}
+
+function startSigningMode({ root, file, source, signing }) {
+  if (!signing.signature?.firma_data_url) {
+    toast("Primero registra tu firma en Perfil.", "warning");
+    return;
+  }
+
+  const body = root.querySelector(".quicklook-body");
+  const signButton = root.querySelector("[data-sign-document]");
+  signButton.disabled = true;
+  body.classList.add("is-signing");
+  root.querySelector("[data-signing-help]")?.remove();
+  body.insertAdjacentHTML("afterbegin", `
+    <div class="signing-help" data-signing-help>
+      <span data-signing-message>Toca el documento, arrastra la firma y confirma cuando este lista.</span>
+      <label class="signing-size-control">
+        <span>Tamano</span>
+        <input type="range" min="60" max="180" step="10" value="100" data-signature-size>
+        <output data-signature-size-label>100%</output>
+      </label>
+      <div class="signing-actions">
+        <button class="button btn btn-light btn-sm" type="button" data-confirm-signature disabled>Confirmar firma</button>
+        <button class="button secondary btn btn-outline-light btn-sm" type="button" data-cancel-signature>Cancelar</button>
+      </div>
+    </div>
+  `);
+
+  const sizeInput = root.querySelector("[data-signature-size]");
+  const sizeLabel = root.querySelector("[data-signature-size-label]");
+  const message = root.querySelector("[data-signing-message]");
+  const confirmButton = root.querySelector("[data-confirm-signature]");
+  const cancelButton = root.querySelector("[data-cancel-signature]");
+  const placement = {
+    target: null,
+    stage: null,
+    ratioX: 0.5,
+    ratioY: 0.5,
+    pageIndex: 0,
+    sizeScale: Number(sizeInput.value) / 100,
+    overlay: null
+  };
+
+  sizeInput.addEventListener("input", () => {
+    sizeLabel.textContent = `${sizeInput.value}%`;
+    placement.sizeScale = Number(sizeInput.value) / 100;
+    updateSignatureOverlay(placement);
+  });
+
+  const targets = isPdf(file)
+    ? [...root.querySelectorAll(".pdf-page canvas")]
+    : [...root.querySelectorAll(".quicklook-image")];
+
+  if (!targets.length) {
+    toast("Espera a que el documento termine de cargar.", "warning");
+    signButton.disabled = false;
+    root.querySelector("[data-signing-help]")?.remove();
+    body.classList.remove("is-signing");
+    return;
+  }
+
+  const resetSigningMode = () => {
+    removeSigningListeners(targets, placeHandler);
+    placement.overlay?.remove();
+    root.querySelector("[data-signing-help]")?.remove();
+    body.classList.remove("is-signing");
+    signButton.disabled = false;
+  };
+
+  const placeHandler = (event) => {
+    event.preventDefault();
+    updatePlacementFromPointer({ placement, target: event.currentTarget, event, file });
+    renderSignatureOverlay({ placement, signing });
+    confirmButton.disabled = false;
+    message.textContent = "Ajusta el tamano o arrastra la firma. Luego confirma.";
+  };
+
+  const confirmHandler = async () => {
+    if (!placement.target) return;
+    confirmButton.disabled = true;
+    cancelButton.disabled = true;
+    message.textContent = "Aplicando firma...";
+    try {
+      if (isPdf(file)) {
+        await signPdfAtPoint({ file, source, signing, placement });
+      } else {
+        await signImageAtPoint({ file, source, signing, placement });
+      }
+      toast("Documento firmado. El archivo original fue reemplazado.", "success");
+      await signing.onSigned?.();
+    } catch (error) {
+      toast(error.message || "No fue posible firmar el documento.", "error");
+      confirmButton.disabled = false;
+      cancelButton.disabled = false;
+      message.textContent = "Ajusta la firma y vuelve a confirmar.";
+    }
+  };
+
+  confirmButton.addEventListener("click", confirmHandler);
+  cancelButton.addEventListener("click", resetSigningMode);
+  targets.forEach((target) => {
+    target.classList.add("signable-target");
+    target.addEventListener("click", placeHandler);
+  });
+}
+
+function removeSigningListeners(targets, handler) {
+  targets.forEach((target) => {
+    target.classList.remove("signable-target");
+    target.removeEventListener("click", handler);
+  });
+}
+
+function updatePlacementFromPointer({ placement, target, event, file }) {
+  const stage = isPdf(file) ? target.closest(".pdf-canvas-stage") : target.closest("[data-image-stage]");
+  const rect = stage.getBoundingClientRect();
+  placement.target = target;
+  placement.stage = stage;
+  placement.pageIndex = Number(target.dataset.pageIndex || 0);
+  placement.ratioX = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+  placement.ratioY = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+}
+
+function renderSignatureOverlay({ placement, signing }) {
+  placement.overlay?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "signature-placement";
+  overlay.innerHTML = `<img src="${escapeAttr(signing.signature.firma_data_url)}" alt="Firma">`;
+  placement.stage.append(overlay);
+  placement.overlay = overlay;
+  updateSignatureOverlay(placement);
+  enableSignatureDrag(placement);
+}
+
+function updateSignatureOverlay(placement) {
+  if (!placement.overlay) return;
+  const widthPercent = clamp(40 * placement.sizeScale, 10, 72);
+  placement.overlay.style.left = `${placement.ratioX * 100}%`;
+  placement.overlay.style.top = `${placement.ratioY * 100}%`;
+  placement.overlay.style.width = `${widthPercent}%`;
+}
+
+function enableSignatureDrag(placement) {
+  const overlay = placement.overlay;
+  overlay.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    overlay.setPointerCapture(event.pointerId);
+    const move = (moveEvent) => {
+      const rect = placement.stage.getBoundingClientRect();
+      placement.ratioX = clamp((moveEvent.clientX - rect.left) / rect.width, 0, 1);
+      placement.ratioY = clamp((moveEvent.clientY - rect.top) / rect.height, 0, 1);
+      updateSignatureOverlay(placement);
+    };
+    const stop = () => {
+      overlay.removeEventListener("pointermove", move);
+      overlay.removeEventListener("pointerup", stop);
+      overlay.removeEventListener("pointercancel", stop);
+    };
+    overlay.addEventListener("pointermove", move);
+    overlay.addEventListener("pointerup", stop);
+    overlay.addEventListener("pointercancel", stop);
+  });
+}
+
+async function signPdfAtPoint({ file, source, signing, placement }) {
+  const { PDFDocument, StandardFonts, rgb } = await getPdfLib();
+  const pdfBytes = await fetchBytes(source);
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const page = pdfDoc.getPages()[placement.pageIndex];
+  if (!page) throw new Error("No se pudo ubicar la pagina seleccionada.");
+
+  const signatureBytes = dataUrlToBytes(signing.signature.firma_data_url);
+  const signatureImage = await pdfDoc.embedPng(signatureBytes);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const { width: pageWidth, height: pageHeight } = page.getSize();
+  const imageWidth = Math.min(Math.min(260, pageWidth * 0.4) * placement.sizeScale, pageWidth - 24);
+  const imageHeight = imageWidth * (signatureImage.height / signatureImage.width);
+  const x = clamp((placement.ratioX * pageWidth) - (imageWidth / 2), 12, pageWidth - imageWidth - 12);
+  const y = clamp(((1 - placement.ratioY) * pageHeight) - (imageHeight / 2), 26, pageHeight - imageHeight - 12);
+  const signer = currentUserName(signing.user);
+
+  page.drawImage(signatureImage, { x, y, width: imageWidth, height: imageHeight });
+  page.drawText(`Firmado por ${signer}`, {
+    x,
+    y: Math.max(10, y - 12),
+    size: 8,
+    font,
+    color: rgb(0.08, 0.12, 0.2)
+  });
+
+  const signedBytes = await pdfDoc.save();
+  const blob = new Blob([signedBytes], { type: "application/pdf" });
+  await dataService.saveSignedDocument({
+    solicitudId: signing.solicitud.id,
+    sourceFile: file,
+    blob,
+    extension: "pdf",
+    mimeType: "application/pdf"
+  });
+}
+
+async function signImageAtPoint({ file, source, signing, placement }) {
+  const imageUrl = await fetchObjectUrl(source);
+  try {
+    const image = await loadImage(imageUrl);
+    const signatureImage = await loadImage(signing.signature.firma_data_url);
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth || image.width;
+    canvas.height = image.naturalHeight || image.height;
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    const signatureWidth = Math.min(Math.min(canvas.width * 0.4, 620) * placement.sizeScale, canvas.width - 24);
+    const signatureHeight = signatureWidth * (signatureImage.height / signatureImage.width);
+    const x = clamp((placement.ratioX * canvas.width) - (signatureWidth / 2), 12, canvas.width - signatureWidth - 12);
+    const y = clamp((placement.ratioY * canvas.height) - (signatureHeight / 2), 12, canvas.height - signatureHeight - 28);
+
+    context.drawImage(signatureImage, x, y, signatureWidth, signatureHeight);
+    context.font = `${Math.max(14, canvas.width * 0.012)}px sans-serif`;
+    context.fillStyle = "#111827";
+    context.fillText(`Firmado por ${currentUserName(signing.user)}`, x, Math.min(canvas.height - 10, y + signatureHeight + 18));
+
+    const blob = await canvasToBlob(canvas, "image/jpeg", 0.88);
+    await dataService.saveSignedDocument({
+      solicitudId: signing.solicitud.id,
+      sourceFile: file,
+      blob,
+      extension: "jpg",
+      mimeType: "image/jpeg"
+    });
+  } finally {
+    URL.revokeObjectURL(imageUrl);
   }
 }
 
@@ -531,6 +828,11 @@ async function getPdfJs() {
   return pdfJsPromise;
 }
 
+async function getPdfLib() {
+  if (!pdfLibPromise) pdfLibPromise = import(PDF_LIB_URL);
+  return pdfLibPromise;
+}
+
 async function renderPdfPreview(container, source) {
   const pdfjs = await getPdfJs();
   const loadingTask = pdfjs.getDocument({ url: source });
@@ -542,20 +844,24 @@ async function renderPdfPreview(container, source) {
     if (!document.body.contains(container)) return;
     const page = await pdf.getPage(pageNumber);
     const viewport = page.getViewport({ scale: 1 });
-    const targetWidth = Math.min(1100, Math.max(280, container.clientWidth - 18));
+    const targetWidth = Math.min(920, Math.max(260, container.clientWidth - 18));
     const scale = targetWidth / viewport.width;
     const scaledViewport = page.getViewport({ scale });
     const outputScale = Math.min(window.devicePixelRatio || 1, 2);
     const pageBox = document.createElement("article");
     pageBox.className = "pdf-page";
     pageBox.innerHTML = `<span>Pagina ${pageNumber} de ${pdf.numPages}</span>`;
+    const canvasStage = document.createElement("div");
+    canvasStage.className = "pdf-canvas-stage";
     const canvas = document.createElement("canvas");
+    canvas.dataset.pageIndex = String(pageNumber - 1);
     const context = canvas.getContext("2d");
     canvas.width = Math.floor(scaledViewport.width * outputScale);
     canvas.height = Math.floor(scaledViewport.height * outputScale);
     canvas.style.width = `${Math.floor(scaledViewport.width)}px`;
     canvas.style.height = `${Math.floor(scaledViewport.height)}px`;
-    pageBox.append(canvas);
+    canvasStage.append(canvas);
+    pageBox.append(canvasStage);
     pages.append(pageBox);
     await page.render({
       canvasContext: context,
@@ -563,6 +869,55 @@ async function renderPdfPreview(container, source) {
       transform: outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0]
     }).promise;
   }
+}
+
+async function fetchBytes(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("No se pudo leer el archivo original.");
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function fetchObjectUrl(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("No se pudo leer la imagen original.");
+  return URL.createObjectURL(await response.blob());
+}
+
+function dataUrlToBytes(dataUrl) {
+  const base64 = String(dataUrl || "").split(",")[1] || "";
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function loadImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("No se pudo cargar la imagen."));
+    image.src = source;
+  });
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("No se pudo generar la imagen firmada."));
+    }, type, quality);
+  });
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function currentUserName(user) {
+  return `${user?.nombre || ""} ${user?.apellido || ""}`.trim() || user?.correo || "Usuario";
 }
 
 function profileName(data, id) {

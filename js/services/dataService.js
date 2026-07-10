@@ -40,6 +40,20 @@ function storageFileName(file) {
   return `${crypto.randomUUID()}-${safeBase}.${extension}`;
 }
 
+function storageSignedFileName(originalName, extension) {
+  const rawBase = String(originalName || "documento")
+    .replace(/\.[^/.]+$/, "")
+    .replace(/^firmado-/, "");
+  const safeBase = rawBase
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "documento";
+
+  return `${crypto.randomUUID()}-firmado-${safeBase}.${extension}`;
+}
+
 function validateCreateRequestPayload(values, files, user) {
   const errors = [];
   const approvers = Array.from(new Set(values.aprobadores || [])).filter(Boolean);
@@ -107,6 +121,13 @@ async function deleteRequestFiles(supabase, files) {
   if (deleted.error) throw deleted.error;
 }
 
+function isMissingStorageObjectError(error) {
+  const message = `${error?.message || error?.error || error?.statusCode || ""}`.toLowerCase();
+  return message.includes("not found")
+    || message.includes("does not exist")
+    || message.includes("404");
+}
+
 export const dataService = {
   async signIn(email, password) {
     const supabase = await getSupabase();
@@ -151,7 +172,8 @@ export const dataService = {
       comentarios,
       auditoria,
       notificaciones,
-      aprobadores
+      aprobadores,
+      firmas
     ] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("departamentos").select("*").order("nombre"),
@@ -161,9 +183,10 @@ export const dataService = {
       supabase.from("comentarios").select("*, usuario:profiles(*)").order("created_at", { ascending: false }),
       supabase.from("auditoria").select("*").order("created_at", { ascending: false }).limit(300),
       supabase.from("notificaciones").select("*").order("created_at", { ascending: false }).limit(100),
-      supabase.from("solicitud_aprobadores").select("*")
+      supabase.from("solicitud_aprobadores").select("*"),
+      supabase.from("firmas_usuarios").select("*")
     ]);
-    const error = [profiles, departamentos, tipos, solicitudes, archivos, comentarios, auditoria, notificaciones, aprobadores].find((result) => result.error)?.error;
+    const error = [profiles, departamentos, tipos, solicitudes, archivos, comentarios, auditoria, notificaciones, aprobadores, firmas].find((result) => result.error)?.error;
     if (error) throw error;
     return {
       profiles: profiles.data,
@@ -174,7 +197,8 @@ export const dataService = {
       comentarios: comentarios.data,
       auditoria: auditoria.data,
       notificaciones: notificaciones.data,
-      solicitud_aprobadores: aprobadores.data
+      solicitud_aprobadores: aprobadores.data,
+      firmas_usuarios: firmas.data || []
     };
   },
 
@@ -272,6 +296,73 @@ export const dataService = {
     const supabase = await getSupabase();
     const { error } = await supabase.from("profiles").update({ activo }).eq("id", id);
     if (error) throw error;
+  },
+
+  async saveUserSignature(userId, firmaDataUrl) {
+    if (!userId) throw new Error("No se encontro una sesion valida.");
+    if (!String(firmaDataUrl || "").startsWith("data:image/png;base64,")) {
+      throw new Error("La firma debe guardarse como imagen PNG.");
+    }
+    const supabase = await getSupabase();
+    const { error } = await supabase
+      .from("firmas_usuarios")
+      .upsert({ usuario_id: userId, firma_data_url: firmaDataUrl }, { onConflict: "usuario_id" });
+    if (error) throw error;
+  },
+
+  async saveSignedDocument({ solicitudId, sourceFile, blob, extension, mimeType }) {
+    if (!solicitudId || !sourceFile?.nombre_original || !blob?.size) {
+      throw new Error("No se pudo preparar el documento firmado.");
+    }
+    if (blob.size > APP_CONFIG.maxFileSize) {
+      throw new Error(`El archivo firmado pesa ${Math.round(blob.size / 1024 / 1024)} MB. El limite es ${Math.round(APP_CONFIG.maxFileSize / 1024 / 1024)} MB.`);
+    }
+    const supabase = await getSupabase();
+    const normalizedExtension = String(extension || "pdf").toLowerCase();
+    const contentType = mimeType || STORAGE_MIME_BY_EXTENSION[normalizedExtension] || blob.type || "application/octet-stream";
+    const displayName = `firmado-${sourceFile.nombre_original.replace(/\.[^/.]+$/, "")}.${normalizedExtension}`;
+    const path = `${solicitudId}/${storageSignedFileName(sourceFile.nombre_original, normalizedExtension)}`;
+    const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, blob, {
+      upsert: false,
+      contentType
+    });
+    if (upload.error) {
+      const detail = upload.error.message || upload.error.error || upload.error.statusCode || "";
+      throw new Error(detail ? `Storage rechazo el archivo firmado: ${detail}` : "Storage rechazo el archivo firmado.");
+    }
+
+    const insert = await supabase.rpc("registrar_archivo_firmado_solicitud", {
+      p_solicitud_id: solicitudId,
+      p_nombre_original: displayName,
+      p_nombre_storage: path.split("/").pop(),
+      p_mime_type: contentType,
+      p_extension: normalizedExtension,
+      p_tamano: blob.size,
+      p_ruta_storage: path
+    });
+    if (insert.error) throw insert.error;
+
+    if (sourceFile.id && sourceFile.ruta_storage) {
+      const removed = await supabase.storage.from(APP_CONFIG.storageBucket).remove([sourceFile.ruta_storage]);
+      if (removed.error && !isMissingStorageObjectError(removed.error)) throw removed.error;
+      const cleanup = await supabase.rpc("eliminar_archivo_original_firmado", {
+        p_archivo_id: sourceFile.id,
+        p_solicitud_id: solicitudId
+      });
+      if (cleanup.error) throw cleanup.error;
+    }
+
+    return insert.data;
+  },
+
+  async cleanupOriginalSignedFile(solicitudId, fileId) {
+    if (!solicitudId || !fileId) return;
+    const supabase = await getSupabase();
+    const cleanup = await supabase.rpc("eliminar_archivo_original_firmado", {
+      p_archivo_id: fileId,
+      p_solicitud_id: solicitudId
+    });
+    if (cleanup.error) throw cleanup.error;
   },
 
   async markNotificationsRead(userId) {

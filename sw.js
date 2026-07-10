@@ -1,4 +1,12 @@
-const NOTIFICATION_ICON = new URL("./assets/icon-192.png?v=20260708-14", self.registration.scope).href;
+const NOTIFICATION_ICON = new URL("./assets/icon-192.png?v=20260710-1", self.registration.scope).href;
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
 
 self.addEventListener("push", (event) => {
   let payload = {};
@@ -8,9 +16,11 @@ self.addEventListener("push", (event) => {
     payload = {};
   }
 
-  const title = payload.title || "SAD";
+  const isIOS = /iPad|iPhone|iPod/.test(self.navigator?.userAgent || "")
+    || (/Macintosh/.test(self.navigator?.userAgent || "") && "standalone" in self.navigator);
+  const title = isIOS ? payload.iosTitle || payload.title || "SAD" : payload.title || "SAD";
   const options = {
-    body: payload.body || "Tienes una nueva notificacion.",
+    body: isIOS ? payload.iosBody || payload.body || "Tienes una nueva notificacion." : payload.body || "Tienes una nueva notificacion.",
     icon: payload.icon || NOTIFICATION_ICON,
     badge: payload.badge || NOTIFICATION_ICON,
     tag: payload.notificationId ? `sad-${payload.notificationId}` : "sad-notification",

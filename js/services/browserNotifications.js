@@ -1,11 +1,12 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260709-8";
+import { dataService } from "./dataService.js?v=20260710-6";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
-const ICON_URL = "./assets/icon-192.png?v=20260708-14";
-const SERVICE_WORKER_URL = "./sw.js";
+const ICON_URL = "./assets/icon-192.png?v=20260710-1";
+const SERVICE_WORKER_URL = "./sw.js?v=20260710-3";
 const REALTIME_REFRESH_DELAY_MS = 500;
+const PUSH_REPAIR_KEY = "sad-push-needs-repair";
 
 let channel = null;
 let pollTimer = null;
@@ -29,6 +30,7 @@ export function pushNotificationState() {
   if (notificationState === "unsupported" || notificationState === "insecure") return notificationState;
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "push-unsupported";
   if (!APP_CONFIG.vapidPublicKey) return "missing-vapid-key";
+  if (notificationState === "granted" && localStorage.getItem(PUSH_REPAIR_KEY) === "1") return "push-needs-repair";
   return notificationState;
 }
 
@@ -43,7 +45,12 @@ export async function requestBrowserNotificationPermission(user) {
   const permission = state === "granted" ? "granted" : await Notification.requestPermission();
   if (permission !== "granted") return permission;
 
-  await ensurePushSubscription(user, { required: true });
+  try {
+    await ensurePushSubscription(user, { required: true });
+  } catch (error) {
+    markPushNeedsRepair();
+    throw error;
+  }
   return permission;
 }
 
@@ -58,22 +65,39 @@ export async function ensurePushSubscription(user, options = {}) {
     return null;
   }
 
-  const registration = await navigator.serviceWorker.register(SERVICE_WORKER_URL, { scope: "./" });
-  registration.update().catch(() => {});
-  const existing = await registration.pushManager.getSubscription();
-  const subscription = existing || await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(APP_CONFIG.vapidPublicKey)
-  });
+  const applicationServerKey = urlBase64ToUint8Array(APP_CONFIG.vapidPublicKey);
+  const registration = await readyServiceWorkerRegistration();
+  let subscription = await registration.pushManager.getSubscription();
 
-  await dataService.savePushSubscription(user.id, subscription);
+  if (subscription && !subscriptionUsesCurrentKey(subscription, applicationServerKey)) {
+    await subscription.unsubscribe().catch(() => {});
+    subscription = null;
+  }
+
+  if (!subscription) {
+    subscription = await subscribePush(registration, applicationServerKey);
+  }
+
+  try {
+    await dataService.savePushSubscription(user.id, subscription);
+  } catch (error) {
+    if (isRecoverablePushError(error)) {
+      await subscription.unsubscribe().catch(() => {});
+      subscription = await subscribePush(registration, applicationServerKey);
+      await dataService.savePushSubscription(user.id, subscription);
+    } else {
+      throw error;
+    }
+  }
+
+  localStorage.removeItem(PUSH_REPAIR_KEY);
   return subscription;
 }
 
 export function showBrowserNotification(notification, options = {}) {
   if (browserNotificationState() !== "granted") return null;
-  const title = "SAD";
-  const body = notificationText(notification) || options.body || "Tienes una nueva notificacion.";
+  const title = notificationDisplayTitle(notification);
+  const body = notificationDisplayBody(notification, options);
   const browserNotification = new Notification(title, {
     body,
     icon: ICON_URL,
@@ -98,8 +122,8 @@ export async function showServiceWorkerNotification(notification, options = {}) 
     throw new Error("Las notificaciones no estan permitidas en este navegador.");
   }
 
-  const title = "SAD";
-  const body = notificationText(notification) || options.body || "Tienes una nueva notificacion.";
+  const title = notificationDisplayTitle(notification);
+  const body = notificationDisplayBody(notification, options);
 
   if (!("serviceWorker" in navigator)) {
     const fallback = showBrowserNotification(notification, options);
@@ -107,9 +131,7 @@ export async function showServiceWorkerNotification(notification, options = {}) 
     return fallback;
   }
 
-  const registrationInstall = await navigator.serviceWorker.register(SERVICE_WORKER_URL, { scope: "./" });
-  registrationInstall.update().catch(() => {});
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await readyServiceWorkerRegistration();
   await registration.showNotification(title, {
     body,
     icon: ICON_URL,
@@ -122,6 +144,96 @@ export async function showServiceWorkerNotification(notification, options = {}) 
     }
   });
   return true;
+}
+
+function notificationDisplayTitle(notification) {
+  return isIOSDevice() ? notificationTitle(notification) || "SAD" : "SAD";
+}
+
+function notificationDisplayBody(notification, options = {}) {
+  if (isIOSDevice()) return notificationBody(notification) || options.body || "Tienes una nueva notificacion.";
+  return notificationText(notification) || options.body || "Tienes una nueva notificacion.";
+}
+
+async function readyServiceWorkerRegistration() {
+  const registration = await navigator.serviceWorker.register(SERVICE_WORKER_URL, { scope: "./" });
+  registration.update().catch(() => {});
+
+  if (registration.installing && !registration.active) {
+    await waitForServiceWorkerActivation(registration.installing);
+  }
+
+  return navigator.serviceWorker.ready;
+}
+
+function waitForServiceWorkerActivation(worker) {
+  if (!worker || worker.state === "activated") return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("El servicio de notificaciones tardo demasiado en activarse. Cierra y abre SAD e intenta de nuevo.")), 8000);
+    worker.addEventListener("statechange", () => {
+      if (worker.state !== "activated") return;
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
+}
+
+async function subscribePush(registration, applicationServerKey) {
+  try {
+    return await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey
+    });
+  } catch (error) {
+    const existing = await registration.pushManager.getSubscription().catch(() => null);
+    if (existing) await existing.unsubscribe().catch(() => {});
+    try {
+      return await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey
+      });
+    } catch (retryError) {
+      throw new Error(pushSubscribeErrorMessage(retryError));
+    }
+  }
+}
+
+function subscriptionUsesCurrentKey(subscription, applicationServerKey) {
+  const currentKey = subscription?.options?.applicationServerKey;
+  if (!currentKey) return true;
+  const existing = currentKey instanceof ArrayBuffer ? new Uint8Array(currentKey) : new Uint8Array(currentKey.buffer || currentKey);
+  if (existing.length !== applicationServerKey.length) return false;
+  return existing.every((value, index) => value === applicationServerKey[index]);
+}
+
+function isRecoverablePushError(error) {
+  const message = `${error?.message || ""}`.toLowerCase();
+  return message.includes("row-level security")
+    || message.includes("subscription")
+    || message.includes("endpoint")
+    || message.includes("push");
+}
+
+function pushSubscribeErrorMessage(error) {
+  const message = `${error?.message || error || ""}`.trim();
+  if (/permission|denied/i.test(message)) {
+    return "Android bloqueo las notificaciones para SAD. Activalas en Configuracion del sitio y vuelve a intentarlo.";
+  }
+  if (/registration|active service worker|service worker/i.test(message)) {
+    return "Android aun no tenia listo el servicio de notificaciones. Cierra y abre SAD e intenta activar de nuevo.";
+  }
+  if (/subscribe|push service|subscription/i.test(message)) {
+    return "No se pudo crear la suscripcion push en Android. Borra el permiso de notificaciones del sitio, vuelve a permitirlo e intenta de nuevo.";
+  }
+  return message || "No se pudo activar la suscripcion push del navegador.";
+}
+
+function markPushNeedsRepair() {
+  try {
+    localStorage.setItem(PUSH_REPAIR_KEY, "1");
+  } catch (error) {
+    // No bloquea el flujo si el navegador restringe almacenamiento local.
+  }
 }
 
 export function seedBrowserNotifications(data, user) {
@@ -146,6 +258,7 @@ export async function startBrowserNotificationStream({ user, data, loadData, onD
   }
 
   ensurePushSubscription(user).catch((error) => {
+    markPushNeedsRepair();
     console.warn("No se pudo sincronizar la suscripcion push.", error);
   });
   await subscribeRealtime(user.id);

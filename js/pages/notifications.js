@@ -1,6 +1,6 @@
 import { formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260709-8";
-import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showServiceWorkerNotification } from "../services/browserNotifications.js?v=20260709-8";
+import { dataService } from "../services/dataService.js?v=20260710-6";
+import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showServiceWorkerNotification } from "../services/browserNotifications.js?v=20260710-3";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";
@@ -14,7 +14,7 @@ export function renderNotifications({ user, data, refresh, openRequest }) {
   const browserState = browserNotificationState();
   const pushState = pushNotificationState();
   const showPermissionCard = pushState !== "granted";
-  const canEnableNotifications = pushState === "default";
+  const canEnableNotifications = pushState === "default" || pushState === "push-needs-repair";
   const view = document.createElement("div");
   view.className = "grid";
   view.innerHTML = `
@@ -24,7 +24,7 @@ export function renderNotifications({ user, data, refresh, openRequest }) {
         <p>${escapeHtml(browserPermissionText(pushState, browserState))}</p>
       </div>
       <div class="toolbar">
-        ${canEnableNotifications ? `<button class="button btn btn-primary" data-enable-browser-notifications>${icon("bell")} Activar</button>` : ""}
+        ${canEnableNotifications ? `<button class="button btn btn-primary" data-enable-browser-notifications>${icon("bell")} ${pushState === "push-needs-repair" ? "Reparar" : "Activar"}</button>` : ""}
       </div>
     </section>` : ""}
     ${hasNotifications ? `<div class="toolbar">
@@ -105,6 +105,7 @@ function browserPermissionText(pushState, browserState) {
     unsupported: "Este navegador no soporta notificaciones.",
     insecure: "Necesitan HTTPS para funcionar fuera de localhost.",
     "push-unsupported": "Este navegador permite avisos basicos, pero no soporta notificaciones push en segundo plano.",
+    "push-needs-repair": "El permiso esta concedido, pero Android no completo la suscripcion push. Pulsa Reparar para renovarla.",
     "ios-not-installed": "En iPhone debes agregar SAD a la pantalla de inicio, abrirla desde ese icono y luego activar notificaciones. Safari como pestana normal no entrega avisos con el celular bloqueado."
   };
   return labels[pushState] || labels[browserState] || "Estado no disponible.";

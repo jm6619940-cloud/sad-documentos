@@ -1,16 +1,16 @@
 import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260708-14";
 import { closeModal, openModal } from "./components/modal.js?v=20260708-12";
 import { toast } from "./components/toast.js?v=20260708-12";
-import { dataService } from "./services/dataService.js?v=20260709-8";
+import { dataService } from "./services/dataService.js?v=20260710-6";
 import { renderDashboard } from "./pages/dashboard.js?v=20260709-7";
 import { renderNewRequest } from "./pages/newRequest.js?v=20260708-12";
 import { renderRequestsTable } from "./pages/requestsTable.js?v=20260709-4";
-import { renderRequestDetail } from "./pages/requestDetail.js?v=20260709-8";
+import { renderRequestDetail } from "./pages/requestDetail.js?v=20260710-7";
 import { renderUsers } from "./pages/users.js?v=20260708-12";
 import { renderCatalogs } from "./pages/catalogs.js?v=20260708-12";
-import { renderProfile } from "./pages/profile.js?v=20260708-12";
+import { renderProfile } from "./pages/profile.js?v=20260710-2";
 import { renderNotifications } from "./pages/notifications.js?v=20260708-14";
-import { startBrowserNotificationStream, stopBrowserNotificationStream } from "./services/browserNotifications.js?v=20260709-8";
+import { startBrowserNotificationStream, stopBrowserNotificationStream } from "./services/browserNotifications.js?v=20260710-3";
 import { ROLES, STATUS } from "./utils/constants.js";
 
 const root = document.querySelector("#app");
