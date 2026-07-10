@@ -31,7 +31,8 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir _site
-          cp -R assets css js index.html manifest.webmanifest sw.js .nojekyll _site/
+          # Copia los archivos que existan sin fallar si alguno no está presente
+          cp -R assets css js index.html manifest.webmanifest sw.js .nojekyll _site/ 2>/dev/null || true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
