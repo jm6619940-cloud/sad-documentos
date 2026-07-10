@@ -2306,7 +2306,16 @@ tr:hover td {
   }
 
   .dashboard-recent-table {
-    border-spacing: 0 22px;
+    border-spacing: 0 28px;
+  }
+
+  .dashboard-recent-table tbody {
+    display: grid;
+    gap: 18px;
+  }
+
+  .dashboard-recent-table tr {
+    margin: 0;
   }
 
   table thead {
@@ -2613,6 +2622,11 @@ tr:hover td {
     width: 100%;
   }
 
+  .dashboard-recent-table tbody {
+    display: grid;
+    gap: 18px;
+  }
+
   .request-table tbody {
     width: 100%;
   }
@@ -2771,7 +2785,12 @@ tr:hover td {
   }
 
   .approval-state {
-    justify-items: stretch;
+    justify-items: start;
+  }
+
+  .approval-state .badge {
+    width: auto;
+    max-width: 100%;
   }
 
   .notification-item,

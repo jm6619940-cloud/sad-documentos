@@ -3,7 +3,7 @@ import { formatBytes, formatDate } from "../utils/format.js";
 import { dataService } from "../services/dataService.js?v=20260710-6";
 import { getSupabase } from "../services/supabaseClient.js";
 import { toast } from "../components/toast.js?v=20260708-12";
-import { closeModal } from "../components/modal.js?v=20260708-12";
+import { closeModal, openModal } from "../components/modal.js?v=20260708-12";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v=20260709-4";
@@ -280,8 +280,11 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
           user,
           onSigned: async () => {
             closeFilePreview();
-            closeModal();
-            await onChange();
+            const freshData = await onChange();
+            const freshSolicitud = freshData?.solicitudes?.find((item) => item.id === solicitud.id);
+            if (freshData && freshSolicitud) {
+              openModal(renderRequestDetail({ solicitud: freshSolicitud, data: freshData, user, onChange }), { title: freshSolicitud.codigo });
+            }
           }
         });
         await dataService.audit(user.id, solicitud.id, "VISTA_PREVIA_ARCHIVO", `Vista previa de ${file.nombre_original}.`);
@@ -531,6 +534,9 @@ function startSigningMode({ root, file, source, signing }) {
     stage: null,
     ratioX: 0.5,
     ratioY: 0.5,
+    visualX: 0,
+    visualY: 0,
+    targetWidth: 0,
     pageIndex: 0,
     sizeScale: Number(sizeInput.value) / 100,
     overlay: null
@@ -608,12 +614,16 @@ function removeSigningListeners(targets, handler) {
 
 function updatePlacementFromPointer({ placement, target, event, file }) {
   const stage = isPdf(file) ? target.closest(".pdf-canvas-stage") : target.closest("[data-image-stage]");
-  const rect = stage.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const stageRect = stage.getBoundingClientRect();
   placement.target = target;
   placement.stage = stage;
   placement.pageIndex = Number(target.dataset.pageIndex || 0);
-  placement.ratioX = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-  placement.ratioY = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+  placement.ratioX = clamp((event.clientX - targetRect.left) / targetRect.width, 0, 1);
+  placement.ratioY = clamp((event.clientY - targetRect.top) / targetRect.height, 0, 1);
+  placement.visualX = (targetRect.left - stageRect.left) + (placement.ratioX * targetRect.width);
+  placement.visualY = (targetRect.top - stageRect.top) + (placement.ratioY * targetRect.height);
+  placement.targetWidth = targetRect.width;
 }
 
 function renderSignatureOverlay({ placement, signing }) {
@@ -629,10 +639,10 @@ function renderSignatureOverlay({ placement, signing }) {
 
 function updateSignatureOverlay(placement) {
   if (!placement.overlay) return;
-  const widthPercent = clamp(40 * placement.sizeScale, 10, 72);
-  placement.overlay.style.left = `${placement.ratioX * 100}%`;
-  placement.overlay.style.top = `${placement.ratioY * 100}%`;
-  placement.overlay.style.width = `${widthPercent}%`;
+  const widthPx = clamp((placement.targetWidth || placement.stage.getBoundingClientRect().width) * 0.32 * placement.sizeScale, 64, 320);
+  placement.overlay.style.left = `${placement.visualX}px`;
+  placement.overlay.style.top = `${placement.visualY}px`;
+  placement.overlay.style.width = `${widthPx}px`;
 }
 
 function enableSignatureDrag(placement) {
@@ -642,9 +652,13 @@ function enableSignatureDrag(placement) {
     event.stopPropagation();
     overlay.setPointerCapture(event.pointerId);
     const move = (moveEvent) => {
+      const targetRect = placement.target.getBoundingClientRect();
       const rect = placement.stage.getBoundingClientRect();
-      placement.ratioX = clamp((moveEvent.clientX - rect.left) / rect.width, 0, 1);
-      placement.ratioY = clamp((moveEvent.clientY - rect.top) / rect.height, 0, 1);
+      placement.ratioX = clamp((moveEvent.clientX - targetRect.left) / targetRect.width, 0, 1);
+      placement.ratioY = clamp((moveEvent.clientY - targetRect.top) / targetRect.height, 0, 1);
+      placement.visualX = clamp(moveEvent.clientX - rect.left, 0, rect.width);
+      placement.visualY = clamp(moveEvent.clientY - rect.top, 0, rect.height);
+      placement.targetWidth = targetRect.width;
       updateSignatureOverlay(placement);
     };
     const stop = () => {
@@ -669,7 +683,7 @@ async function signPdfAtPoint({ file, source, signing, placement }) {
   const signatureImage = await pdfDoc.embedPng(signatureBytes);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const { width: pageWidth, height: pageHeight } = page.getSize();
-  const imageWidth = Math.min(Math.min(260, pageWidth * 0.4) * placement.sizeScale, pageWidth - 24);
+  const imageWidth = Math.min(Math.min(260, pageWidth * 0.32) * placement.sizeScale, pageWidth - 24);
   const imageHeight = imageWidth * (signatureImage.height / signatureImage.width);
   const x = clamp((placement.ratioX * pageWidth) - (imageWidth / 2), 12, pageWidth - imageWidth - 12);
   const y = clamp(((1 - placement.ratioY) * pageHeight) - (imageHeight / 2), 26, pageHeight - imageHeight - 12);
@@ -706,7 +720,7 @@ async function signImageAtPoint({ file, source, signing, placement }) {
     const context = canvas.getContext("2d");
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-    const signatureWidth = Math.min(Math.min(canvas.width * 0.4, 620) * placement.sizeScale, canvas.width - 24);
+    const signatureWidth = Math.min(Math.min(canvas.width * 0.32, 620) * placement.sizeScale, canvas.width - 24);
     const signatureHeight = signatureWidth * (signatureImage.height / signatureImage.width);
     const x = clamp((placement.ratioX * canvas.width) - (signatureWidth / 2), 12, canvas.width - signatureWidth - 12);
     const y = clamp((placement.ratioY * canvas.height) - (signatureHeight / 2), 12, canvas.height - signatureHeight - 28);
@@ -847,7 +861,7 @@ async function renderPdfPreview(container, source) {
     const targetWidth = Math.min(920, Math.max(260, container.clientWidth - 18));
     const scale = targetWidth / viewport.width;
     const scaledViewport = page.getViewport({ scale });
-    const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+    const outputScale = Math.min(window.devicePixelRatio || 1, 3);
     const pageBox = document.createElement("article");
     pageBox.className = "pdf-page";
     pageBox.innerHTML = `<span>Pagina ${pageNumber} de ${pdf.numPages}</span>`;
