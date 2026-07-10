@@ -537,6 +537,7 @@ function startSigningMode({ root, file, source, signing }) {
     visualX: 0,
     visualY: 0,
     targetWidth: 0,
+    pdfViewport: null,
     pageIndex: 0,
     sizeScale: Number(sizeInput.value) / 100,
     overlay: null
@@ -614,16 +615,28 @@ function removeSigningListeners(targets, handler) {
 
 function updatePlacementFromPointer({ placement, target, event, file }) {
   const stage = isPdf(file) ? target.closest(".pdf-canvas-stage") : target.closest("[data-image-stage]");
+  updatePlacementFromClientPoint({
+    placement,
+    target,
+    stage,
+    file,
+    clientX: event.clientX,
+    clientY: event.clientY
+  });
+}
+
+function updatePlacementFromClientPoint({ placement, target, stage, file, clientX, clientY }) {
   const targetRect = target.getBoundingClientRect();
   const stageRect = stage.getBoundingClientRect();
   placement.target = target;
   placement.stage = stage;
   placement.pageIndex = Number(target.dataset.pageIndex || 0);
-  placement.ratioX = clamp((event.clientX - targetRect.left) / targetRect.width, 0, 1);
-  placement.ratioY = clamp((event.clientY - targetRect.top) / targetRect.height, 0, 1);
+  placement.ratioX = clamp((clientX - targetRect.left) / targetRect.width, 0, 1);
+  placement.ratioY = clamp((clientY - targetRect.top) / targetRect.height, 0, 1);
   placement.visualX = (targetRect.left - stageRect.left) + (placement.ratioX * targetRect.width);
   placement.visualY = (targetRect.top - stageRect.top) + (placement.ratioY * targetRect.height);
   placement.targetWidth = targetRect.width;
+  placement.pdfViewport = isPdf(file) ? target._sadPdfViewport || null : null;
 }
 
 function renderSignatureOverlay({ placement, signing }) {
@@ -652,13 +665,14 @@ function enableSignatureDrag(placement) {
     event.stopPropagation();
     overlay.setPointerCapture(event.pointerId);
     const move = (moveEvent) => {
-      const targetRect = placement.target.getBoundingClientRect();
-      const rect = placement.stage.getBoundingClientRect();
-      placement.ratioX = clamp((moveEvent.clientX - targetRect.left) / targetRect.width, 0, 1);
-      placement.ratioY = clamp((moveEvent.clientY - targetRect.top) / targetRect.height, 0, 1);
-      placement.visualX = clamp(moveEvent.clientX - rect.left, 0, rect.width);
-      placement.visualY = clamp(moveEvent.clientY - rect.top, 0, rect.height);
-      placement.targetWidth = targetRect.width;
+      updatePlacementFromClientPoint({
+        placement,
+        target: placement.target,
+        stage: placement.stage,
+        file: placement.target?.dataset.pdfPage === "true" ? { extension: "pdf" } : { extension: "image" },
+        clientX: moveEvent.clientX,
+        clientY: moveEvent.clientY
+      });
       updateSignatureOverlay(placement);
     };
     const stop = () => {
@@ -683,10 +697,11 @@ async function signPdfAtPoint({ file, source, signing, placement }) {
   const signatureImage = await pdfDoc.embedPng(signatureBytes);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const { width: pageWidth, height: pageHeight } = page.getSize();
-  const imageWidth = Math.min(Math.min(260, pageWidth * 0.32) * placement.sizeScale, pageWidth - 24);
-  const imageHeight = imageWidth * (signatureImage.height / signatureImage.width);
-  const x = clamp((placement.ratioX * pageWidth) - (imageWidth / 2), 12, pageWidth - imageWidth - 12);
-  const y = clamp(((1 - placement.ratioY) * pageHeight) - (imageHeight / 2), 26, pageHeight - imageHeight - 12);
+  const pdfRect = pdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight });
+  const imageWidth = pdfRect.width;
+  const imageHeight = pdfRect.height;
+  const x = clamp(pdfRect.x, 0, Math.max(0, pageWidth - imageWidth));
+  const y = clamp(pdfRect.y, 0, Math.max(0, pageHeight - imageHeight));
   const signer = currentUserName(signing.user);
 
   page.drawImage(signatureImage, { x, y, width: imageWidth, height: imageHeight });
@@ -707,6 +722,40 @@ async function signPdfAtPoint({ file, source, signing, placement }) {
     extension: "pdf",
     mimeType: "application/pdf"
   });
+}
+
+function pdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight }) {
+  const aspect = signatureImage.height / signatureImage.width;
+  const viewport = placement.pdfViewport;
+  if (!viewport?.convertToPdfPoint) {
+    const width = Math.min(Math.min(260, pageWidth * 0.32) * placement.sizeScale, pageWidth - 24);
+    const height = width * aspect;
+    return {
+      x: (placement.ratioX * pageWidth) - (width / 2),
+      y: ((1 - placement.ratioY) * pageHeight) - (height / 2),
+      width,
+      height
+    };
+  }
+
+  const viewportWidth = Math.max(1, viewport.width);
+  const centerX = placement.ratioX * viewportWidth;
+  const centerY = placement.ratioY * Math.max(1, viewport.height);
+  const visualWidth = clamp(viewportWidth * 0.32 * placement.sizeScale, 64, Math.min(320, viewportWidth));
+  const visualHeight = visualWidth * aspect;
+  const topLeft = viewport.convertToPdfPoint(centerX - (visualWidth / 2), centerY - (visualHeight / 2));
+  const bottomRight = viewport.convertToPdfPoint(centerX + (visualWidth / 2), centerY + (visualHeight / 2));
+  const x = Math.min(topLeft[0], bottomRight[0]);
+  const y = Math.min(topLeft[1], bottomRight[1]);
+  const width = Math.abs(bottomRight[0] - topLeft[0]);
+  const height = Math.abs(bottomRight[1] - topLeft[1]);
+
+  return {
+    x,
+    y,
+    width: clamp(width, 24, pageWidth),
+    height: clamp(height, 12, pageHeight)
+  };
 }
 
 async function signImageAtPoint({ file, source, signing, placement }) {
@@ -869,6 +918,8 @@ async function renderPdfPreview(container, source) {
     canvasStage.className = "pdf-canvas-stage";
     const canvas = document.createElement("canvas");
     canvas.dataset.pageIndex = String(pageNumber - 1);
+    canvas.dataset.pdfPage = "true";
+    canvas._sadPdfViewport = scaledViewport;
     const context = canvas.getContext("2d");
     canvas.width = Math.floor(scaledViewport.width * outputScale);
     canvas.height = Math.floor(scaledViewport.height * outputScale);
