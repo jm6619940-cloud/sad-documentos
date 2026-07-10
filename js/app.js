@@ -2,18 +2,19 @@ import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260
 import { closeModal, openModal } from "./components/modal.js?v=20260708-12";
 import { toast } from "./components/toast.js?v=20260708-12";
 import { dataService } from "./services/dataService.js?v=20260710-6";
-import { renderDashboard } from "./pages/dashboard.js?v=20260709-7";
+import { renderDashboard } from "./pages/dashboard.js?v=20260710-1";
 import { renderNewRequest } from "./pages/newRequest.js?v=20260708-12";
-import { renderRequestsTable } from "./pages/requestsTable.js?v=20260709-4";
+import { clearRequestTableState, renderRequestsTable } from "./pages/requestsTable.js?v=20260710-8";
 import { renderRequestDetail } from "./pages/requestDetail.js?v=20260710-7";
 import { renderUsers } from "./pages/users.js?v=20260708-12";
 import { renderCatalogs } from "./pages/catalogs.js?v=20260708-12";
 import { renderProfile } from "./pages/profile.js?v=20260710-2";
-import { renderNotifications } from "./pages/notifications.js?v=20260708-14";
-import { startBrowserNotificationStream, stopBrowserNotificationStream } from "./services/browserNotifications.js?v=20260710-3";
+import { renderNotifications } from "./pages/notifications.js?v=20260710-1";
+import { startBrowserNotificationStream, stopBrowserNotificationStream, syncAppBadge } from "./services/browserNotifications.js?v=20260710-4";
 import { ROLES, STATUS } from "./utils/constants.js";
 
 const root = document.querySelector("#app");
+const launchScreen = document.querySelector("#launch-screen");
 const THEME_KEY = "sad-theme";
 const state = {
   user: null,
@@ -29,6 +30,7 @@ async function init() {
   await watchAuthState();
   state.user = await dataService.getCurrentUser();
   if (state.user) state.data = await dataService.listData();
+  await updateAppBadge();
   await syncBrowserNotifications();
   render();
   await openRequestFromUrl();
@@ -37,11 +39,13 @@ async function init() {
 async function refresh(options = {}) {
   state.user = await dataService.getCurrentUser();
   state.data = state.user ? await dataService.listData() : null;
+  await updateAppBadge();
   await syncBrowserNotifications();
   if (!options.silent) render();
 }
 
 function navigate(route) {
+  if (state.route !== route) clearRequestTableState();
   state.route = route;
   render();
 }
@@ -75,6 +79,7 @@ async function openNotificationsModal() {
 
 async function refreshNotificationsModal() {
   state.data = await dataService.listData();
+  await updateAppBadge();
   render();
   openNotificationsModal();
 }
@@ -83,6 +88,10 @@ async function openRequestFromNotification(target) {
   state.data = await dataService.listData();
   if (typeof target !== "string" && target?.id && !target.leida) {
     await dataService.markNotificationRead(target.id, state.user.id);
+    target.leida = true;
+    const storedNotification = state.data.notificaciones.find((item) => item.id === target.id);
+    if (storedNotification) storedNotification.leida = true;
+    await updateAppBadge();
   }
   const solicitudId = typeof target === "string"
     ? target
@@ -95,7 +104,9 @@ async function openRequestFromNotification(target) {
   }
 
   closeModal();
-  state.route = routeForRequest(solicitud);
+  const nextRoute = routeForRequest(solicitud);
+  if (state.route !== nextRoute) clearRequestTableState();
+  state.route = nextRoute;
   render();
   openModal(renderRequestDetail({ solicitud, data: state.data, user: state.user, onChange: refresh }), { title: solicitud.codigo });
 }
@@ -141,6 +152,8 @@ async function login(event) {
     suppressAuthSyncUntil = Date.now() + 2500;
     state.user = await dataService.signIn(form.get("email"), form.get("password"));
     state.data = await dataService.listData();
+    await updateAppBadge();
+    clearRequestTableState();
     state.route = "dashboard";
     await syncBrowserNotifications();
     toast("Sesion iniciada.", "success");
@@ -160,7 +173,9 @@ async function logout() {
   await dataService.signOut();
   state.user = null;
   state.data = null;
+  clearRequestTableState();
   state.route = "dashboard";
+  await updateAppBadge();
   render();
 }
 
@@ -191,6 +206,8 @@ async function syncCurrentSession({ notify = false } = {}) {
     await stopBrowserNotificationStream();
     state.user = currentUser;
     state.data = currentUser ? await dataService.listData() : null;
+    await updateAppBadge();
+    clearRequestTableState();
     state.route = "dashboard";
     await syncBrowserNotifications();
     render();
@@ -212,9 +229,13 @@ async function syncBrowserNotifications() {
     data: state.data,
     loadData: async () => {
       state.data = await dataService.listData();
+      await updateAppBadge();
       return state.data;
     },
-    onData: () => render(),
+    onData: async (data) => {
+      await syncAppBadge(data, state.user);
+      render();
+    },
     onClick: openRequestFromNotification
   });
 }
@@ -223,6 +244,7 @@ function render() {
   root.innerHTML = "";
   if (!state.user) {
     root.append(renderLoginShell(login, { theme: state.theme, toggleTheme }));
+    hideLaunchScreen();
     return;
   }
   const shell = renderAppShell({
@@ -238,6 +260,19 @@ function render() {
   root.append(shell);
   const outlet = shell.querySelector("[data-page]");
   outlet.append(renderPage());
+  hideLaunchScreen();
+}
+
+function hideLaunchScreen() {
+  launchScreen?.classList.add("hidden");
+}
+
+async function updateAppBadge() {
+  if (!state.user || !state.data) {
+    await syncAppBadge({ notificaciones: [] }, { id: "" });
+    return;
+  }
+  await syncAppBadge(state.data, state.user);
 }
 
 function renderPage() {

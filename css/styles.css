@@ -65,6 +65,38 @@ button {
   overflow-x: hidden;
 }
 
+.launch-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 26px;
+  background: linear-gradient(145deg, #edf6ff 0%, #f8fbff 52%, #fff4f2 100%);
+  color: #18202f;
+  transition: opacity 180ms ease, visibility 180ms ease;
+}
+
+.launch-screen img {
+  width: min(28vw, 142px);
+  height: min(28vw, 142px);
+  border-radius: 32px;
+  box-shadow: 0 22px 48px rgba(25, 36, 55, 0.18);
+}
+
+.launch-screen strong {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.launch-screen.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .login-view {
   min-height: 100vh;
   display: grid;
@@ -661,6 +693,10 @@ td {
 .request-list {
   width: 100%;
   min-width: 0;
+}
+
+.mobile-only-cell {
+  display: none;
 }
 
 .request-grid {
@@ -2269,6 +2305,10 @@ tr:hover td {
     min-width: 0;
   }
 
+  .dashboard-recent-table {
+    border-spacing: 0 22px;
+  }
+
   table thead {
     display: none;
   }
@@ -2378,6 +2418,7 @@ tr:hover td {
   .topbar {
     height: 64px;
     padding-inline: 12px;
+    position: static;
   }
 
   .topbar strong {
@@ -2558,7 +2599,7 @@ tr:hover td {
   table.table {
     min-width: 0;
     border-collapse: separate;
-    border-spacing: 0 18px;
+    border-spacing: 0 22px;
   }
 
   table thead {
@@ -2626,6 +2667,14 @@ tr:hover td {
     width: 100%;
     border-bottom: 1px solid var(--line);
     padding: 12px 14px;
+  }
+
+  .request-row .request-cell:not([data-mobile-essential]) {
+    display: none;
+  }
+
+  .request-row .mobile-only-cell[data-mobile-essential] {
+    display: block;
   }
 
   .request-cell:last-child {

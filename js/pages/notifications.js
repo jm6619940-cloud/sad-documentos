@@ -1,6 +1,6 @@
 import { formatDate } from "../utils/format.js";
 import { dataService } from "../services/dataService.js?v=20260710-6";
-import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showServiceWorkerNotification } from "../services/browserNotifications.js?v=20260710-3";
+import { browserNotificationState, pushNotificationState, requestBrowserNotificationPermission, showServiceWorkerNotification } from "../services/browserNotifications.js?v=20260710-4";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";

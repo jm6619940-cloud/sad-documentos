@@ -240,6 +240,29 @@ export function seedBrowserNotifications(data, user) {
   knownNotificationIds = new Set(userNotifications(data, user).map((item) => item.id));
 }
 
+export async function syncAppBadge(data, user) {
+  if (!("setAppBadge" in navigator || "clearAppBadge" in navigator)) return false;
+  if (!user?.id) {
+    try {
+      if ("clearAppBadge" in navigator) await navigator.clearAppBadge();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  const unread = userNotifications(data, user).filter((item) => !item.leida).length;
+  try {
+    if (unread > 0 && "setAppBadge" in navigator) {
+      await navigator.setAppBadge(unread);
+    } else if ("clearAppBadge" in navigator) {
+      await navigator.clearAppBadge();
+    }
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 export async function startBrowserNotificationStream({ user, data, loadData, onData, onClick }) {
   if (!user?.id) return;
   latestDataLoader = loadData;
@@ -256,6 +279,7 @@ export async function startBrowserNotificationStream({ user, data, loadData, onD
       await handleIncomingNotification(notification);
     }
   }
+  await syncAppBadge(data, user);
 
   ensurePushSubscription(user).catch((error) => {
     markPushNeedsRepair();
@@ -325,6 +349,7 @@ function startPolling(user) {
     try {
       const data = await latestDataLoader();
       latestData = data;
+      await syncAppBadge(data, user);
       if (dataHandler) dataHandler(data);
       userNotifications(data, user).forEach((notification) => {
         if (!knownNotificationIds.has(notification.id)) {
@@ -352,6 +377,7 @@ async function refreshDataSoon() {
     try {
       const data = await latestDataLoader();
       latestData = data;
+      await syncAppBadge(data, { id: activeUserId });
       if (dataHandler) dataHandler(data);
     } catch (error) {
       console.warn("No se pudieron refrescar los datos en tiempo real.", error);

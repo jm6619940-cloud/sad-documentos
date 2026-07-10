@@ -8,14 +8,21 @@ import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v=20260709-4";
 
 const TABLE_STATE = new Map();
-const PAGE_SIZE_OPTIONS = [15, 25, 50, 100, "all"];
+let lastStateKey = "";
+const PAGE_SIZE_OPTIONS = [6, 15, 25, 50, 100, "all"];
+const DEFAULT_PAGE_SIZE = 6;
 
 export function renderRequestsTable({ mode, user, data, refresh }) {
   const isPending = mode === "pending";
   const isHistory = mode === "history";
   const usePriorityFilter = isPending && user.rol === ROLES.APPROVER;
   const stateKey = `${user.id}:${user.rol}:${mode}`;
-  const tableState = TABLE_STATE.get(stateKey) || { currentPage: 1, pageSize: 15 };
+  if (lastStateKey && lastStateKey !== stateKey) {
+    TABLE_STATE.delete(lastStateKey);
+  }
+  lastStateKey = stateKey;
+  const tableState = TABLE_STATE.get(stateKey) || { currentPage: 1, pageSize: DEFAULT_PAGE_SIZE, filters: {} };
+  tableState.filters ||= {};
   TABLE_STATE.set(stateKey, tableState);
   const page = document.createElement("div");
   page.className = "grid";
@@ -28,17 +35,17 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
       <div class="panel-header">
         <h2>${isPending ? "Cola de aprobacion" : "Solicitudes"}</h2>
         <div class="toolbar">
-          <input class="input form-control" data-filter="text" placeholder="Buscar">
+          <input class="input form-control" data-filter="text" placeholder="Buscar" value="${escapeAttr(tableState.filters.text || "")}">
           ${usePriorityFilter
-            ? `<select class="form-select" data-filter="prioridad"><option value="">Prioridad</option>${unique(data.solicitudes.map((item) => item.prioridad)).map(option).join("")}</select>`
-            : `<select class="form-select" data-filter="estado"><option value="">Estado</option>${unique(data.solicitudes.map((item) => item.estado)).map(option).join("")}</select>`}
-          <select class="form-select" data-filter="tipo"><option value="">Tipo</option>${data.tipos_documento.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.nombre)}</option>`).join("")}</select>
+            ? `<select class="form-select" data-filter="prioridad"><option value="">Prioridad</option>${unique(data.solicitudes.map((item) => item.prioridad)).map((value) => option(value, tableState.filters.prioridad)).join("")}</select>`
+            : `<select class="form-select" data-filter="estado"><option value="">Estado</option>${unique(data.solicitudes.map((item) => item.estado)).map((value) => option(value, tableState.filters.estado)).join("")}</select>`}
+          <select class="form-select" data-filter="tipo"><option value="">Tipo</option>${data.tipos_documento.map((item) => `<option value="${escapeAttr(item.id)}" ${tableState.filters.tipo === item.id ? "selected" : ""}>${escapeHtml(item.nombre)}</option>`).join("")}</select>
           <select class="form-select" data-filter="dias">
-            <option value="">Todos los dias</option>
-            <option value="today">Hoy</option>
-            <option value="7">Ultimos 7 dias</option>
-            <option value="30">Ultimos 30 dias</option>
-            <option value="month">Este mes</option>
+            <option value="" ${!tableState.filters.dias ? "selected" : ""}>Todos los dias</option>
+            <option value="today" ${tableState.filters.dias === "today" ? "selected" : ""}>Hoy</option>
+            <option value="7" ${tableState.filters.dias === "7" ? "selected" : ""}>Ultimos 7 dias</option>
+            <option value="30" ${tableState.filters.dias === "30" ? "selected" : ""}>Ultimos 30 dias</option>
+            <option value="month" ${tableState.filters.dias === "month" ? "selected" : ""}>Este mes</option>
           </select>
         </div>
       </div>
@@ -80,13 +87,13 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
         <div class="request-list-body">
           ${visibleRows.map((item) => `
             <div class="request-grid request-row clickable-row" data-row-detail="${escapeAttr(item.id)}" role="row" tabindex="0">
-              <div class="request-cell request-cell-title" data-label="Titulo" role="cell" title="${escapeAttr(item.titulo || item.codigo)}"><strong class="cell-ellipsis">${escapeHtml(item.titulo || item.codigo)}</strong></div>
-              ${isPending || isHistory ? `<div class="request-cell request-cell-person" data-label="Solicitante" role="cell" title="${escapeAttr(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`.trim())}"><span class="cell-ellipsis">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</span></div><div class="request-cell request-cell-department" data-label="Departamento" role="cell" title="${escapeAttr(item.departamento?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.departamento?.nombre)}</span></div>` : ""}
-              <div class="request-cell request-cell-status" data-label="Estado" role="cell">${statusSummary(item, user, data)}</div>
+              <div class="request-cell request-cell-title" data-label="Titulo" data-mobile-essential role="cell" title="${escapeAttr(item.titulo || item.codigo)}"><strong class="cell-ellipsis">${escapeHtml(item.titulo || item.codigo)}</strong></div>
+              ${isPending || isHistory ? `<div class="request-cell request-cell-person" data-label="Solicitante" data-mobile-essential role="cell" title="${escapeAttr(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`.trim())}"><span class="cell-ellipsis">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</span></div><div class="request-cell request-cell-department" data-label="Departamento" role="cell" title="${escapeAttr(item.departamento?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.departamento?.nombre)}</span></div>` : `<div class="request-cell request-cell-person mobile-only-cell" data-label="Solicitante" data-mobile-essential role="cell" title="${escapeAttr(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`.trim())}"><span class="cell-ellipsis">${textOrDash(`${item.creador?.nombre || ""} ${item.creador?.apellido || ""}`)}</span></div>`}
+              <div class="request-cell request-cell-status" data-label="Estado" data-mobile-essential role="cell">${statusSummary(item, user, data)}</div>
               <div class="request-cell request-cell-type" data-label="Tipo" role="cell" title="${escapeAttr(item.tipo?.nombre || "")}"><span class="cell-ellipsis">${textOrDash(item.tipo?.nombre)}</span></div>
-              <div class="request-cell request-cell-priority" data-label="Prioridad" role="cell"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></div>
+              <div class="request-cell request-cell-priority" data-label="Prioridad" data-mobile-essential role="cell"><span class="badge ${escapeAttr(item.prioridad)}">${escapeHtml(item.prioridad)}</span></div>
               <div class="request-cell request-cell-approvers" data-label="Aprobadores" role="cell">${approverSummary(data, item.id)}</div>
-              <div class="request-cell request-cell-date" data-label="Fecha" role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.created_at)}</span></div>
+              <div class="request-cell request-cell-date" data-label="Fecha" data-mobile-essential role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.created_at)}</span></div>
               <div class="request-cell request-cell-date" data-label="Actualizacion" role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.updated_at)}</span></div>
               <div class="request-cell request-actions" data-label="" role="cell"><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></div>
             </div>
@@ -134,6 +141,7 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
   };
 
   const refreshFilteredRows = () => {
+    tableState.filters = Object.fromEntries([...page.querySelectorAll("[data-filter]")].map((input) => [input.dataset.filter, input.value]));
     tableState.currentPage = 1;
     renderRows();
   };
@@ -148,6 +156,11 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
   });
   renderRows();
   return page;
+}
+
+export function clearRequestTableState() {
+  TABLE_STATE.clear();
+  lastStateKey = "";
 }
 
 function filteredRows({ mode, user, data, filters }) {
@@ -202,8 +215,8 @@ function unique(items) {
   return [...new Set(items.filter(Boolean))];
 }
 
-function option(value) {
-  return `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`;
+function option(value, selected = "") {
+  return `<option value="${escapeAttr(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(value)}</option>`;
 }
 
 function statusSummary(item, user, data) {

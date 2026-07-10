@@ -56,7 +56,7 @@ export function renderDashboard({ user, data, navigate, openRequest }) {
         <button class="button secondary btn btn-outline-secondary" data-route="history">Ver historial</button>
       </div>
       <div class="table-wrap">
-        <table class="table table-hover align-middle">
+        <table class="table table-hover align-middle dashboard-recent-table">
           <thead><tr><th>Codigo</th><th>Titulo</th><th>Estado</th><th>Actualizacion</th></tr></thead>
           <tbody>
             ${data.solicitudes.slice(0, 6).map((item) => `
