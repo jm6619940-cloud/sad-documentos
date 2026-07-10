@@ -1,6 +1,6 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260710-7";
+import { dataService } from "../services/dataService.js?v=20260710-8";
 import { getSupabase } from "../services/supabaseClient.js";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { closeModal, openModal } from "../components/modal.js?v=20260708-12";
@@ -254,7 +254,6 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
         if (url) window.open(url, "_blank", "noopener");
         await dataService.audit(user.id, solicitud.id, "DESCARGA_ARCHIVO", `Descarga de ${file.nombre_original}.`);
       } catch (error) {
-        if (await cleanupStaleOriginalFile({ error, file, solicitud, files, onChange })) return;
         toast(error.message || "No fue posible descargar el archivo.", "error");
       }
     });
@@ -289,7 +288,6 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
         });
         await dataService.audit(user.id, solicitud.id, "VISTA_PREVIA_ARCHIVO", `Vista previa de ${file.nombre_original}.`);
       } catch (error) {
-        if (await cleanupStaleOriginalFile({ error, file, solicitud, files, onChange })) return;
         toast(error.message || "No fue posible abrir la vista previa.", "error");
       } finally {
         button.innerHTML = previousLabel;
@@ -386,30 +384,6 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
   });
 
   return view;
-}
-
-async function cleanupStaleOriginalFile({ error, file, solicitud, files, onChange }) {
-  if (!isSignedUrlError(error) || file.nombre_original?.toLowerCase().startsWith("firmado-")) return false;
-  const hasSignedReplacement = files.some((item) => item.solicitud_id === solicitud.id && item.nombre_original?.toLowerCase().startsWith("firmado-"));
-  if (!hasSignedReplacement) return false;
-  try {
-    await dataService.cleanupOriginalSignedFile(solicitud.id, file.id);
-    toast("Se limpio un archivo original que ya fue reemplazado por el firmado.", "info");
-    await onChange();
-    return true;
-  } catch (cleanupError) {
-    console.warn("No se pudo limpiar el archivo original reemplazado.", cleanupError);
-    return false;
-  }
-}
-
-function isSignedUrlError(error) {
-  const message = `${error?.message || error?.error || error?.statusCode || ""}`.toLowerCase();
-  return message.includes("signed")
-    || message.includes("not found")
-    || message.includes("does not exist")
-    || message.includes("400")
-    || message.includes("404");
 }
 
 function previewMarkup(file, source = "") {
@@ -518,7 +492,7 @@ function startSigningMode({ root, file, source, signing }) {
         <output data-signature-size-label>100%</output>
       </label>
       <div class="signing-actions">
-        <button class="button btn btn-light btn-sm" type="button" data-confirm-signature disabled>Confirmar firma</button>
+        <button class="button btn btn-primary btn-sm signing-confirm-button" type="button" data-confirm-signature disabled>Confirmar firma</button>
         <button class="button secondary btn btn-outline-light btn-sm" type="button" data-cancel-signature>Cancelar</button>
       </div>
     </div>

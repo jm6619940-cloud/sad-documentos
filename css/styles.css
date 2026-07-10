@@ -1592,6 +1592,21 @@ tr:hover td {
   flex: 0 0 auto;
 }
 
+.signing-help .signing-confirm-button {
+  color: #fff;
+  background: var(--primary-strong);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.signing-help .signing-confirm-button:hover,
+.signing-help .signing-confirm-button:focus {
+  color: #fff;
+}
+
+.signing-help .signing-confirm-button:disabled {
+  color: rgba(255, 255, 255, 0.74);
+}
+
 .signable-target {
   outline: 3px solid rgba(59, 130, 246, 0.88);
   outline-offset: 4px;

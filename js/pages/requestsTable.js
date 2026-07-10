@@ -3,7 +3,7 @@ import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260708-
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260710-10";
+import { renderRequestDetail } from "./requestDetail.js?v=20260710-11";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v=20260709-4";
 

@@ -256,12 +256,42 @@ export const dataService = {
 
   async actOnRequest(solicitudId, user, action, comentario) {
     const supabase = await getSupabase();
+    const shouldCleanupOriginals = action === "aprobar";
+    let filesBeforeApproval = [];
+
+    if (shouldCleanupOriginals) {
+      const currentFiles = await supabase
+        .from("archivos")
+        .select("id,ruta_storage")
+        .eq("solicitud_id", solicitudId);
+      if (currentFiles.error) throw currentFiles.error;
+      filesBeforeApproval = currentFiles.data || [];
+    }
+
     const { error } = await supabase.rpc("actuar_solicitud", {
       p_id: solicitudId,
       p_accion: action,
       p_comentario: cleanText(comentario)
     });
     if (error) throw error;
+
+    if (shouldCleanupOriginals && filesBeforeApproval.length) {
+      const currentFiles = await supabase
+        .from("archivos")
+        .select("ruta_storage")
+        .eq("solicitud_id", solicitudId);
+      if (currentFiles.error) throw currentFiles.error;
+
+      const activePaths = new Set((currentFiles.data || []).map((file) => file.ruta_storage));
+      const removedPaths = filesBeforeApproval
+        .map((file) => file.ruta_storage)
+        .filter((path) => path && !activePaths.has(path));
+
+      if (removedPaths.length) {
+        const cleanup = await supabase.storage.from(APP_CONFIG.storageBucket).remove(removedPaths);
+        if (cleanup.error) console.warn("No se pudieron limpiar archivos originales reemplazados.", cleanup.error);
+      }
+    }
   },
 
   async completePurchaseRequest(solicitudId, comentario, user) {
@@ -344,16 +374,6 @@ export const dataService = {
     if (insert.error) throw insert.error;
 
     return insert.data;
-  },
-
-  async cleanupOriginalSignedFile(solicitudId, fileId) {
-    if (!solicitudId || !fileId) return;
-    const supabase = await getSupabase();
-    const cleanup = await supabase.rpc("eliminar_archivo_original_firmado", {
-      p_archivo_id: fileId,
-      p_solicitud_id: solicitudId
-    });
-    if (cleanup.error) throw cleanup.error;
   },
 
   async markNotificationsRead(userId) {
