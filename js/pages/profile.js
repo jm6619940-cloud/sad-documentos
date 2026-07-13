@@ -1,7 +1,7 @@
 import { ROLE_LABELS, ROLES } from "../utils/constants.js";
 import { pageTitle } from "../components/layout.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
-import { dataService } from "../services/dataService.js?v=20260713-4";
+import { dataService } from "../services/dataService.js?v=20260713-5";
 import { toast } from "../components/toast.js?v=20260708-12";
 
 export function renderProfile({ user, data, refresh }) {

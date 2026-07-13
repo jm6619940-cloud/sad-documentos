@@ -11,6 +11,16 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+function isMissingRpcError(error) {
+  const message = `${error?.message || ""}`.toLowerCase();
+  return error?.code === "PGRST202"
+    || error?.code === "PGRST204"
+    || error?.status === 404
+    || message.includes("could not find the function")
+    || message.includes("schema cache")
+    || message.includes("not found");
+}
+
 async function ensureActiveSession(supabase) {
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session?.access_token) {
@@ -364,6 +374,15 @@ export const dataService = {
       pin_actual: currentPin,
       pin_nuevo: newPin
     });
+    if (isMissingRpcError(error)) {
+      const fallback = await supabase.rpc("guardar_firma_usuario_rpc_legacy", {
+        p_firma_data_url: firmaDataUrl,
+        p_pin_actual: currentPin,
+        p_pin_nuevo: newPin
+      });
+      if (fallback.error) throw fallback.error;
+      return;
+    }
     if (error) throw error;
   },
 
