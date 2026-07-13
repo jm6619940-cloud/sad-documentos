@@ -205,18 +205,39 @@ p {
 .catalog-active-check {
   align-self: end;
   min-height: 44px;
-  padding: 10px 0 2px;
+  padding: 10px 0 2px 4px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
 }
 
 .catalog-active-check input {
-  width: 1rem;
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0 0 0 2px;
 }
 
 .catalog-active-check span {
   margin: 0;
+}
+
+.saved-inline-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(20, 150, 94, 0.22);
+  border-radius: 8px;
+  color: #0f8a5f;
+  background: rgba(209, 250, 229, 0.72);
+  font-weight: 850;
+}
+
+[data-theme="dark"] .saved-inline-status {
+  color: #86efac;
+  background: rgba(20, 83, 45, 0.28);
+  border-color: rgba(134, 239, 172, 0.2);
 }
 
 .input,
@@ -1779,6 +1800,45 @@ tr:hover td {
   gap: 12px;
 }
 
+.signature-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.signature-control {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.signature-control span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.signature-control div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.signature-control input[type="range"] {
+  width: 100%;
+}
+
+.signature-control output {
+  min-width: 58px;
+  color: var(--text);
+  font-weight: 900;
+  text-align: right;
+}
+
 .signature-pad {
   width: 100%;
   height: clamp(160px, 28vw, 260px);
@@ -2196,6 +2256,10 @@ tr:hover td {
     gap: 14px;
   }
 
+  .signature-controls {
+    grid-template-columns: 1fr;
+  }
+
   .field {
     gap: 8px;
   }
@@ -2204,6 +2268,10 @@ tr:hover td {
     width: 1.15em;
     height: 1.15em;
     margin-top: 0.2em;
+  }
+
+  .catalog-active-check .form-check-input {
+    margin: 0 0 0 2px;
   }
 
   .approver-option,

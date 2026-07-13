@@ -39,8 +39,10 @@ export function renderProfile({ user, data, refresh }) {
           <div class="detail-box"><strong>Correo verificado</strong><p>${escapeHtml(user.correo)}</p></div>
           <div class="detail-box"><strong>Rol</strong><p>${escapeHtml(ROLE_LABELS[user.rol] || user.rol)}</p></div>
         </div>
-        <div class="toolbar">
-          <button class="button btn btn-primary" type="submit">Guardar datos</button>
+        <div class="toolbar" data-profile-actions>
+          ${user.onboarding_completed_at
+            ? "<span class='saved-inline-status'>Datos guardados</span>"
+            : "<button class='button btn btn-primary' type='submit'>Guardar datos</button>"}
         </div>
       </form>
     </section>
@@ -65,6 +67,22 @@ export function renderProfile({ user, data, refresh }) {
             <span>${signature ? "Dibuja la nueva firma" : "Dibuja tu firma"}</span>
             <canvas class="signature-pad" width="860" height="260" data-signature-pad></canvas>
           </label>
+          <div class="signature-controls">
+            <label class="signature-control">
+              <span>Grosor del lapiz</span>
+              <div>
+                <input type="range" min="1.5" max="8" step="0.5" value="2.6" data-signature-stroke>
+                <output data-signature-stroke-label>2.6 px</output>
+              </div>
+            </label>
+            <label class="signature-control">
+              <span>Tamano del area</span>
+              <div>
+                <input type="range" min="180" max="340" step="20" value="260" data-signature-pad-size>
+                <output data-signature-pad-size-label>260 px</output>
+              </div>
+            </label>
+          </div>
           <div class="row g-3">
             ${signature?.pin_updated_at ? `
               <label class="field col-12 col-md-6"><span>PIN actual</span><input class="input form-control" type="password" name="pin_actual" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
@@ -86,12 +104,15 @@ export function renderProfile({ user, data, refresh }) {
   profileForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const submitter = event.submitter;
+    if (!submitter) return;
     submitter.disabled = true;
     const previousLabel = submitter.textContent;
     submitter.textContent = "Guardando...";
     try {
       const values = Object.fromEntries(new FormData(profileForm).entries());
       await dataService.completeOnboarding(values, null);
+      const actions = profileForm.querySelector("[data-profile-actions]");
+      if (actions) actions.innerHTML = "<span class='saved-inline-status'>Datos guardados</span>";
       toast("Datos guardados correctamente.", "success");
       await refresh();
     } catch (error) {
@@ -108,8 +129,13 @@ export function renderProfile({ user, data, refresh }) {
 function setupSignaturePad({ form, user, signature, refresh }) {
   const canvas = form.querySelector("[data-signature-pad]");
   const context = canvas.getContext("2d");
+  const strokeInput = form.querySelector("[data-signature-stroke]");
+  const strokeLabel = form.querySelector("[data-signature-stroke-label]");
+  const padSizeInput = form.querySelector("[data-signature-pad-size]");
+  const padSizeLabel = form.querySelector("[data-signature-pad-size-label]");
   let drawing = false;
   let hasInk = false;
+  let strokeWidth = Number(strokeInput?.value || 2.6);
 
   function resizeCanvas() {
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
@@ -117,10 +143,26 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     canvas.width = Math.max(320, Math.floor(rect.width * ratio));
     canvas.height = Math.max(150, Math.floor(rect.height * ratio));
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.lineWidth = 2.6;
+    context.lineWidth = strokeWidth;
     context.lineCap = "round";
     context.lineJoin = "round";
     context.strokeStyle = "#1d4ed8";
+  }
+
+  function updateStroke() {
+    strokeWidth = Number(strokeInput?.value || 2.6);
+    context.lineWidth = strokeWidth;
+    if (strokeLabel) strokeLabel.textContent = `${strokeWidth.toFixed(1)} px`;
+  }
+
+  function updatePadSize() {
+    const nextHeight = Number(padSizeInput?.value || 260);
+    if (padSizeLabel) padSizeLabel.textContent = `${nextHeight} px`;
+    canvas.style.height = `${nextHeight}px`;
+    const hadInk = hasInk;
+    resizeCanvas();
+    hasInk = false;
+    if (hadInk) toast("El area cambio de tamano. Dibuja la firma nuevamente.", "info");
   }
 
   function point(event) {
@@ -160,6 +202,9 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     hasInk = false;
   });
 
+  strokeInput?.addEventListener("input", updateStroke);
+  padSizeInput?.addEventListener("input", updatePadSize);
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const submitter = event.submitter;
@@ -191,5 +236,8 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     }
   });
 
-  requestAnimationFrame(resizeCanvas);
+  requestAnimationFrame(() => {
+    updateStroke();
+    updatePadSize();
+  });
 }
