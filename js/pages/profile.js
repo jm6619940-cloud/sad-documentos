@@ -63,8 +63,25 @@ export function renderProfile({ user, data, refresh }) {
           </div>
         ` : ""}
         <form class="signature-form" data-signature-form>
+          <div class="signature-mode-switch" role="group" aria-label="Metodo para registrar firma">
+            <label>
+              <input type="radio" name="signature_mode" value="draw" checked data-signature-mode>
+              <span>Dibujar</span>
+            </label>
+            <label>
+              <input type="radio" name="signature_mode" value="scan" data-signature-mode>
+              <span>Escanear firma</span>
+            </label>
+          </div>
+          <div class="signature-scan-panel" data-signature-scan-panel hidden>
+            <label class="field">
+              <span>Foto o imagen de tu firma</span>
+              <input class="input form-control" type="file" accept="image/*" capture="environment" data-signature-upload>
+            </label>
+            <p>Escribe tu firma en papel blanco, toma una foto con buena luz y la convertiremos a firma digital azul.</p>
+          </div>
           <label class="field">
-            <span>${signature ? "Dibuja la nueva firma" : "Dibuja tu firma"}</span>
+            <span data-signature-pad-label>${signature ? "Dibuja la nueva firma" : "Dibuja tu firma"}</span>
             <canvas class="signature-pad" width="860" height="260" data-signature-pad></canvas>
           </label>
           <div class="signature-controls">
@@ -133,9 +150,17 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   const strokeLabel = form.querySelector("[data-signature-stroke-label]");
   const padSizeInput = form.querySelector("[data-signature-pad-size]");
   const padSizeLabel = form.querySelector("[data-signature-pad-size-label]");
+  const scanPanel = form.querySelector("[data-signature-scan-panel]");
+  const uploadInput = form.querySelector("[data-signature-upload]");
+  const padLabel = form.querySelector("[data-signature-pad-label]");
   let drawing = false;
   let hasInk = false;
   let strokeWidth = Number(strokeInput?.value || 2.6);
+
+  function clearPad() {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    hasInk = false;
+  }
 
   function resizeCanvas() {
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
@@ -198,18 +223,42 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   });
 
   form.querySelector("[data-clear-signature]").addEventListener("click", () => {
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    hasInk = false;
+    clearPad();
+    if (uploadInput) uploadInput.value = "";
   });
 
   strokeInput?.addEventListener("input", updateStroke);
   padSizeInput?.addEventListener("input", updatePadSize);
+  form.querySelectorAll("[data-signature-mode]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const mode = form.elements.signature_mode.value;
+      scanPanel.hidden = mode !== "scan";
+      if (padLabel) padLabel.textContent = mode === "scan" ? "Vista previa digitalizada" : (signature ? "Dibuja la nueva firma" : "Dibuja tu firma");
+    });
+  });
+  uploadInput?.addEventListener("change", async () => {
+    const file = uploadInput.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("Selecciona una imagen valida de tu firma.", "warning");
+      uploadInput.value = "";
+      return;
+    }
+    try {
+      const processed = await processScannedSignature(file);
+      drawProcessedSignatureOnPad({ canvas, context, processed });
+      hasInk = true;
+      toast("Firma escaneada y digitalizada.", "success");
+    } catch (error) {
+      toast(error.message || "No fue posible digitalizar la firma.", "error");
+    }
+  });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const submitter = event.submitter;
     if (!hasInk) {
-      toast("Dibuja tu firma antes de guardarla.", "warning");
+      toast("Dibuja o escanea tu firma antes de guardarla.", "warning");
       return;
     }
     submitter.disabled = true;
@@ -239,5 +288,115 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   requestAnimationFrame(() => {
     updateStroke();
     updatePadSize();
+  });
+}
+
+async function processScannedSignature(file) {
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadImage(imageUrl);
+    const maxSide = 1800;
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+    const sourceCanvas = document.createElement("canvas");
+    sourceCanvas.width = width;
+    sourceCanvas.height = height;
+    const sourceContext = sourceCanvas.getContext("2d", { willReadFrequently: true });
+    sourceContext.drawImage(image, 0, 0, width, height);
+
+    const bounds = scannedInkBounds(sourceContext, width, height);
+    if (!bounds) throw new Error("No detectamos la firma. Usa una foto con fondo claro y tinta visible.");
+
+    const padding = 18;
+    const cropX = Math.max(0, bounds.x - padding);
+    const cropY = Math.max(0, bounds.y - padding);
+    const cropRight = Math.min(width, bounds.x + bounds.width + padding);
+    const cropBottom = Math.min(height, bounds.y + bounds.height + padding);
+    const cropWidth = Math.max(1, cropRight - cropX);
+    const cropHeight = Math.max(1, cropBottom - cropY);
+    const pixels = sourceContext.getImageData(cropX, cropY, cropWidth, cropHeight);
+    const output = new ImageData(cropWidth, cropHeight);
+
+    for (let index = 0; index < pixels.data.length; index += 4) {
+      const red = pixels.data[index];
+      const green = pixels.data[index + 1];
+      const blue = pixels.data[index + 2];
+      const alpha = pixels.data[index + 3];
+      const brightness = (red + green + blue) / 3;
+      const darkness = Math.max(0, 245 - brightness);
+      const inkAlpha = alpha > 10 ? Math.min(255, Math.round(darkness * 2.7)) : 0;
+      output.data[index] = 29;
+      output.data[index + 1] = 78;
+      output.data[index + 2] = 216;
+      output.data[index + 3] = inkAlpha > 38 ? inkAlpha : 0;
+    }
+
+    const outputCanvas = document.createElement("canvas");
+    outputCanvas.width = cropWidth;
+    outputCanvas.height = cropHeight;
+    outputCanvas.getContext("2d").putImageData(output, 0, 0);
+    return outputCanvas;
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function scannedInkBounds(context, width, height) {
+  const pixels = context.getImageData(0, 0, width, height).data;
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  let count = 0;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      const alpha = pixels[index + 3];
+      if (alpha <= 10) continue;
+      const red = pixels[index];
+      const green = pixels[index + 1];
+      const blue = pixels[index + 2];
+      const brightness = (red + green + blue) / 3;
+      const contrast = Math.max(red, green, blue) - Math.min(red, green, blue);
+      if (brightness > 218 && contrast < 48) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+      count += 1;
+    }
+  }
+
+  if (count < 24 || maxX < minX || maxY < minY) return null;
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1
+  };
+}
+
+function drawProcessedSignatureOnPad({ canvas, context, processed }) {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  const visibleWidth = canvas.clientWidth || canvas.width;
+  const visibleHeight = canvas.clientHeight || canvas.height;
+  const fit = Math.min((visibleWidth * 0.82) / processed.width, (visibleHeight * 0.66) / processed.height, 1.8);
+  const drawWidth = processed.width * fit;
+  const drawHeight = processed.height * fit;
+  const x = (visibleWidth - drawWidth) / 2;
+  const y = (visibleHeight - drawHeight) / 2;
+  context.drawImage(processed, x, y, drawWidth, drawHeight);
+}
+
+function loadImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("No se pudo leer la imagen de la firma."));
+    image.src = source;
   });
 }
