@@ -12,7 +12,7 @@ const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 const PDF_LIB_URL = "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm";
 const SIGNATURE_INK_COLOR = "#1d4ed8";
-const SIGNATURE_DEFAULT_SCALE = 60;
+const SIGNATURE_DEFAULT_SCALE = 30;
 const signatureTintCache = new Map();
 let pdfJsPromise;
 let pdfLibPromise;
@@ -511,7 +511,7 @@ function startSigningMode({ root, file, source, signing }) {
       <span data-signing-message>Toca el documento, arrastra la firma y confirma cuando este lista.</span>
       <label class="signing-size-control">
         <span>Tamano</span>
-        <input type="range" min="60" max="260" step="10" value="${SIGNATURE_DEFAULT_SCALE}" autocomplete="off" data-signature-size>
+        <input type="range" min="30" max="260" step="10" value="${SIGNATURE_DEFAULT_SCALE}" autocomplete="off" data-signature-size>
         <output data-signature-size-label>${SIGNATURE_DEFAULT_SCALE}%</output>
       </label>
       <div class="signing-actions">
