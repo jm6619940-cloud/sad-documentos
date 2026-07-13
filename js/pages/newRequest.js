@@ -1,7 +1,7 @@
 import { PRIORITIES } from "../utils/constants.js";
 import { validateFiles } from "../utils/validators.js?v=20260708-12";
 import { pageTitle } from "../components/layout.js";
-import { dataService } from "../services/dataService.js?v=20260710-6";
+import { dataService } from "../services/dataService.js?v=20260713-2";
 import * as toastApi from "../components/toast.js?v=20260708-12";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml } from "../utils/security.js";
@@ -12,18 +12,27 @@ const alertMessage = toastApi.alertMessage || ((title, messages, type = "warning
   toast(`${title}: ${list.join(", ")}`, type);
 });
 
-function validateRequestForm(values, files, hasApprovers) {
+function isCatalogActive(item) {
+  return item.activo !== false;
+}
+
+function validateRequestForm(values, files, hasApprovers, hasDocumentTypes) {
   const errors = [];
   const requiredFields = [
     ["titulo", "El titulo es obligatorio."],
     ["descripcion", "La descripcion es obligatoria."],
-    ["tipo_documento_id", "Selecciona el tipo de documento."],
     ["prioridad", "Selecciona la prioridad."]
   ];
 
   requiredFields.forEach(([field, message]) => {
     if (!String(values[field] ?? "").trim()) errors.push(message);
   });
+
+  if (!hasDocumentTypes) {
+    errors.push("No hay tipos de documento activos disponibles. Pide al administrador que active al menos uno.");
+  } else if (!String(values.tipo_documento_id ?? "").trim()) {
+    errors.push("Selecciona el tipo de documento.");
+  }
 
   if (!hasApprovers) {
     errors.push("No hay aprobadores activos disponibles. Pide al administrador que active al menos uno.");
@@ -41,6 +50,7 @@ function validateRequestForm(values, files, hasApprovers) {
 
 export function renderNewRequest({ user, data, refresh, navigate }) {
   const approvers = data.profiles.filter((profile) => profile.rol === "aprobador" && profile.activo);
+  const documentTypes = data.tipos_documento.filter(isCatalogActive);
   const page = document.createElement("div");
   page.className = "grid";
   page.append(pageTitle("Nueva solicitud", "Completa la informacion y adjunta los documentos necesarios."));
@@ -50,9 +60,10 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
         <label class="field"><span>Titulo</span><input class="input form-control" name="titulo" required maxlength="160"></label>
         <label class="field"><span>Descripcion</span><textarea class="form-control" name="descripcion" rows="4" required></textarea></label>
         <div class="row g-3">
-          <label class="field col-12 col-lg-6"><span>Tipo de documento</span><select class="form-select" name="tipo_documento_id" required>${data.tipos_documento.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.nombre)}</option>`).join("")}</select></label>
+          <label class="field col-12 col-lg-6"><span>Tipo de documento</span><select class="form-select" name="tipo_documento_id" required ${documentTypes.length ? "" : "disabled"}>${documentTypes.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.nombre)}</option>`).join("")}</select></label>
           <label class="field col-12 col-lg-6"><span>Prioridad</span><select class="form-select" name="prioridad" required>${PRIORITIES.map((item) => `<option>${escapeHtml(item)}</option>`).join("")}</select></label>
         </div>
+        ${documentTypes.length ? "" : "<p class='inline-warning'>No hay tipos de documento activos disponibles.</p>"}
         <fieldset class="field approver-picker">
           <legend>Aprobadores</legend>
           <div class="approver-options">
@@ -75,7 +86,7 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
         </label>
         <ul class="file-list" data-selected-files></ul>
         <div class="toolbar">
-          <button class="button btn btn-primary" type="submit" ${approvers.length ? "" : "disabled"}>${icon("check")} Crear solicitud</button>
+          <button class="button btn btn-primary" type="submit" ${approvers.length && documentTypes.length ? "" : "disabled"}>${icon("check")} Crear solicitud</button>
           <button class="button secondary btn btn-outline-secondary" type="button" data-cancel>Cancelar</button>
         </div>
       </form>
@@ -98,7 +109,7 @@ export function renderNewRequest({ user, data, refresh, navigate }) {
     values.descripcion = String(values.descripcion || "").trim();
     values.observaciones = String(values.observaciones || "").trim();
     values.aprobadores = formData.getAll("aprobadores").filter(Boolean);
-    const errors = validateRequestForm(values, fileInput.files, approvers.length > 0);
+    const errors = validateRequestForm(values, fileInput.files, approvers.length > 0, documentTypes.length > 0);
     if (errors.length) {
       alertMessage("Falta completar informacion", errors, "warning");
       return;

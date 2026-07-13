@@ -130,6 +130,10 @@ export const dataService = {
     const supabase = await getSupabase();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    if (!data.user?.email_confirmed_at && !data.user?.confirmed_at) {
+      await supabase.auth.signOut();
+      throw new Error("Debes confirmar tu correo antes de ingresar. Revisa tu bandeja de entrada.");
+    }
     const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
     if (profileError) throw profileError;
     await this.audit(profile.id, null, "INICIO_SESION", "Inicio de sesion.");
@@ -168,6 +172,7 @@ export const dataService = {
       archivos,
       comentarios,
       auditoria,
+      firmaEvidencias,
       notificaciones,
       aprobadores,
       firmas
@@ -179,11 +184,12 @@ export const dataService = {
       supabase.from("archivos").select("*").order("created_at", { ascending: false }),
       supabase.from("comentarios").select("*, usuario:profiles(*)").order("created_at", { ascending: false }),
       supabase.from("auditoria").select("*").order("created_at", { ascending: false }).limit(300),
+      supabase.from("firma_evidencias").select("*").order("created_at", { ascending: false }).limit(300),
       supabase.from("notificaciones").select("*").order("created_at", { ascending: false }).limit(100),
       supabase.from("solicitud_aprobadores").select("*"),
-      supabase.from("firmas_usuarios").select("*")
+      supabase.from("firmas_usuarios").select("usuario_id,firma_data_url,version,firma_sha256,pin_updated_at,ultima_verificacion_at,created_at,updated_at")
     ]);
-    const error = [profiles, departamentos, tipos, solicitudes, archivos, comentarios, auditoria, notificaciones, aprobadores, firmas].find((result) => result.error)?.error;
+    const error = [profiles, departamentos, tipos, solicitudes, archivos, comentarios, auditoria, firmaEvidencias, notificaciones, aprobadores, firmas].find((result) => result.error)?.error;
     if (error) throw error;
     return {
       profiles: profiles.data,
@@ -193,6 +199,7 @@ export const dataService = {
       archivos: archivos.data,
       comentarios: comentarios.data,
       auditoria: auditoria.data,
+      firma_evidencias: firmaEvidencias.data || [],
       notificaciones: notificaciones.data,
       solicitud_aprobadores: aprobadores.data,
       firmas_usuarios: firmas.data || []
@@ -310,6 +317,13 @@ export const dataService = {
     if (error) throw error;
   },
 
+  async setCatalogActive(table, id, activo) {
+    if (!id) throw new Error("No se encontro el registro del catalogo.");
+    const supabase = await getSupabase();
+    const { error } = await supabase.from(table).update({ activo }).eq("id", id);
+    if (error) throw error;
+  },
+
   async upsertProfile(values) {
     if (!values.id) {
       throw new Error("Crea primero el usuario en Supabase Auth. Luego edita su perfil desde SAD.");
@@ -325,19 +339,43 @@ export const dataService = {
     if (error) throw error;
   },
 
-  async saveUserSignature(userId, firmaDataUrl) {
+  async saveUserSignature(userId, firmaDataUrl, { currentPin = "", newPin = "" } = {}) {
     if (!userId) throw new Error("No se encontro una sesion valida.");
     if (!String(firmaDataUrl || "").startsWith("data:image/png;base64,")) {
       throw new Error("La firma debe guardarse como imagen PNG.");
     }
     const supabase = await getSupabase();
-    const { error } = await supabase
-      .from("firmas_usuarios")
-      .upsert({ usuario_id: userId, firma_data_url: firmaDataUrl }, { onConflict: "usuario_id" });
+    const { error } = await supabase.rpc("registrar_o_actualizar_firma_usuario", {
+      p_firma_data_url: firmaDataUrl,
+      p_pin_actual: currentPin,
+      p_pin_nuevo: newPin
+    });
     if (error) throw error;
   },
 
-  async saveSignedDraft({ solicitudId, sourceFile, userId, blob, extension, mimeType }) {
+  async completeOnboarding(values, firmaDataUrl = null) {
+    const supabase = await getSupabase();
+    const { error } = await supabase.rpc("completar_onboarding_usuario", {
+      p_nombre: cleanText(values.nombre),
+      p_apellido: cleanText(values.apellido),
+      p_departamento_id: values.departamento_id || null,
+      p_telefono: cleanText(values.telefono),
+      p_documento_identidad: cleanText(values.documento_identidad),
+      p_cargo: cleanText(values.cargo),
+      p_firma_data_url: firmaDataUrl,
+      p_pin: cleanText(values.pin)
+    });
+    if (error) throw error;
+  },
+
+  async validateSignaturePin(pin) {
+    const supabase = await getSupabase();
+    const { data, error } = await supabase.rpc("validar_pin_firma", { p_pin: cleanText(pin) });
+    if (error) throw error;
+    return Boolean(data);
+  },
+
+  async saveSignedDraft({ solicitudId, sourceFile, userId, blob, extension, mimeType, pin }) {
     if (!solicitudId || !sourceFile?.nombre_original || !blob?.size) {
       throw new Error("No se pudo preparar el documento firmado.");
     }
@@ -347,7 +385,13 @@ export const dataService = {
     if (blob.size > APP_CONFIG.maxFileSize) {
       throw new Error(`El archivo firmado pesa ${Math.round(blob.size / 1024 / 1024)} MB. El limite es ${Math.round(APP_CONFIG.maxFileSize / 1024 / 1024)} MB.`);
     }
+    if (!/^[0-9]{4,12}$/.test(String(pin || ""))) {
+      throw new Error("Ingresa tu PIN de firma.");
+    }
     const supabase = await getSupabase();
+    const pinValid = await this.validateSignaturePin(pin);
+    if (!pinValid) throw new Error("PIN de firma incorrecto.");
+
     const normalizedExtension = String(extension || "pdf").toLowerCase();
     const contentType = mimeType || STORAGE_MIME_BY_EXTENSION[normalizedExtension] || blob.type || "application/octet-stream";
     const displayName = `firmado-${sourceFile.nombre_original.replace(/\.[^/.]+$/, "")}.${normalizedExtension}`;
@@ -369,7 +413,8 @@ export const dataService = {
       p_mime_type: contentType,
       p_extension: normalizedExtension,
       p_tamano: blob.size,
-      p_ruta_storage: path
+      p_ruta_storage: path,
+      p_pin: pin
     });
     if (insert.error) throw insert.error;
 

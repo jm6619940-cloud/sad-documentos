@@ -1,6 +1,6 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260710-8";
+import { dataService } from "../services/dataService.js?v=20260713-2";
 import { getSupabase } from "../services/supabaseClient.js";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { closeModal, openModal } from "../components/modal.js?v=20260708-12";
@@ -11,6 +11,8 @@ import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v
 const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 const PDF_LIB_URL = "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm";
+const SIGNATURE_INK_COLOR = "#1d4ed8";
+const signatureTintCache = new Map();
 let pdfJsPromise;
 let pdfLibPromise;
 
@@ -57,9 +59,13 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
   const canSign = canSignDocument(user, solicitud, data);
   const userSignature = data.firmas_usuarios?.find((item) => item.usuario_id === user.id);
   const canComplete = canCompletePurchase(user, solicitud, data);
+  const activeDocumentTypes = data.tipos_documento.filter((item) => item.activo !== false);
   const showPurchaseExecution = canSeePurchaseModule(user, data) && isPurchaseRequest(solicitud) && solicitud.estado === STATUS.APPROVED;
   const auditTrail = user.rol === ROLES.ADMIN
     ? (data.auditoria || []).filter((entry) => entry.solicitud_id === solicitud.id)
+    : [];
+  const signatureEvidence = user.rol === ROLES.ADMIN
+    ? (data.firma_evidencias || []).filter((entry) => entry.solicitud_id === solicitud.id)
     : [];
   const view = document.createElement("div");
   view.className = "grid request-detail";
@@ -126,8 +132,8 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
           <div class="row g-3">
             <label class="field col-12 col-lg-6">
               <span>Tipo de documento</span>
-              <select class="form-select" name="tipo_documento_id" required>
-                ${data.tipos_documento.map((item) => `<option value="${escapeAttr(item.id)}" ${item.id === solicitud.tipo_documento_id ? "selected" : ""}>${escapeHtml(item.nombre)}</option>`).join("")}
+              <select class="form-select" name="tipo_documento_id" required ${activeDocumentTypes.length ? "" : "disabled"}>
+                ${activeDocumentTypes.map((item) => `<option value="${escapeAttr(item.id)}" ${item.id === solicitud.tipo_documento_id ? "selected" : ""}>${escapeHtml(item.nombre)}</option>`).join("")}
               </select>
             </label>
             <label class="field col-12 col-lg-6">
@@ -137,6 +143,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
               </select>
             </label>
           </div>
+          ${activeDocumentTypes.length ? "" : "<p class='inline-warning'>No hay tipos de documento activos para reenviar la correccion.</p>"}
           <label class="field"><span>Observaciones</span><textarea class="form-control" name="observaciones" rows="2">${escapeHtml(solicitud.observaciones || "")}</textarea></label>
           <fieldset class="field correction-files">
             <legend>Archivos actuales</legend>
@@ -158,7 +165,7 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
           </label>
           <ul class="file-list" data-correction-selected-files></ul>
           <div class="toolbar">
-            <button class="button btn btn-primary" type="submit">${icon("check")} Guardar correccion</button>
+            <button class="button btn btn-primary" type="submit" ${activeDocumentTypes.length ? "" : "disabled"}>${icon("check")} Guardar correccion</button>
           </div>
         </form>
       </section>
@@ -195,6 +202,21 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
       </form>
     </section>
     ${user.rol === ROLES.ADMIN ? `
+      <section class="grid">
+        <h3>Evidencia de firma avanzada</h3>
+        <ul class="timeline">
+          ${signatureEvidence.length ? signatureEvidence.map((entry) => `
+            <li class="timeline-item audit-item">
+              <div class="audit-row">
+                <strong>${escapeHtml(entry.accion)}</strong>
+                <small>${formatDate(entry.created_at)}</small>
+              </div>
+              <p>${escapeHtml(entry.nombre_usuario || "Usuario")} · ${escapeHtml(entry.correo_usuario || "")}</p>
+              <small>Metodo: ${escapeHtml(entry.metodo)} · Version firma: ${escapeHtml(entry.firma_version)}${entry.ip ? ` · IP: ${escapeHtml(entry.ip)}` : ""}${entry.user_agent ? ` · ${escapeHtml(shortUserAgent(entry.user_agent))}` : ""}</small>
+            </li>
+          `).join("") : "<li class='empty-state'>Sin evidencias de firma.</li>"}
+        </ul>
+      </section>
       <section class="grid">
         <h3>Historial de auditoria</h3>
         <ul class="timeline">
@@ -557,10 +579,17 @@ function startSigningMode({ root, file, source, signing }) {
     cancelButton.disabled = true;
     message.textContent = "Aplicando firma...";
     try {
+      const pin = await requestSignaturePin();
+      if (!pin) {
+        confirmButton.disabled = false;
+        cancelButton.disabled = false;
+        message.textContent = "Ajusta la firma y vuelve a confirmar.";
+        return;
+      }
       if (isPdf(file)) {
-        await signPdfAtPoint({ file, source, signing, placement });
+        await signPdfAtPoint({ file, source, signing, placement, pin });
       } else {
-        await signImageAtPoint({ file, source, signing, placement });
+        await signImageAtPoint({ file, source, signing, placement, pin });
       }
       toast("Firma preparada. Pulsa Aprobar para publicar el documento firmado.", "success");
       await signing.onSigned?.();
@@ -578,6 +607,35 @@ function startSigningMode({ root, file, source, signing }) {
     target.classList.add("signable-target");
     target.addEventListener("click", placeHandler);
   });
+}
+
+async function requestSignaturePin() {
+  if (window.Swal) {
+    const result = await window.Swal.fire({
+      title: "PIN de firma",
+      input: "password",
+      inputLabel: "Confirma tu identidad para aplicar la firma",
+      inputPlaceholder: "PIN numerico",
+      inputAttributes: {
+        inputmode: "numeric",
+        maxlength: "12",
+        autocomplete: "off"
+      },
+      showCancelButton: true,
+      confirmButtonText: "Firmar documento",
+      cancelButtonText: "Cancelar",
+      preConfirm: (value) => {
+        if (!/^[0-9]{4,12}$/.test(String(value || ""))) {
+          window.Swal.showValidationMessage("Ingresa un PIN numerico de 4 a 12 digitos.");
+          return false;
+        }
+        return value;
+      }
+    });
+    return result.isConfirmed ? result.value : "";
+  }
+
+  return window.prompt("PIN de firma") || "";
 }
 
 function removeSigningListeners(targets, handler) {
@@ -620,6 +678,10 @@ function renderSignatureOverlay({ placement, signing }) {
   overlay.innerHTML = `<img src="${escapeAttr(signing.signature.firma_data_url)}" alt="Firma">`;
   placement.stage.append(overlay);
   placement.overlay = overlay;
+  const image = overlay.querySelector("img");
+  signatureInkDataUrl(signing.signature.firma_data_url).then((blueSignature) => {
+    if (placement.overlay === overlay) image.src = blueSignature;
+  }).catch(() => {});
   updateSignatureOverlay(placement);
   enableSignatureDrag(placement);
 }
@@ -660,14 +722,14 @@ function enableSignatureDrag(placement) {
   });
 }
 
-async function signPdfAtPoint({ file, source, signing, placement }) {
+async function signPdfAtPoint({ file, source, signing, placement, pin }) {
   const { PDFDocument, degrees } = await getPdfLib();
   const pdfBytes = await fetchBytes(source);
   const pdfDoc = await PDFDocument.load(pdfBytes);
   const page = pdfDoc.getPages()[placement.pageIndex];
   if (!page) throw new Error("No se pudo ubicar la pagina seleccionada.");
 
-  const signatureBytes = dataUrlToBytes(signing.signature.firma_data_url);
+  const signatureBytes = dataUrlToBytes(await signatureInkDataUrl(signing.signature.firma_data_url));
   const signatureImage = await pdfDoc.embedPng(signatureBytes);
   const { width: pageWidth, height: pageHeight } = page.getSize();
   const pdfRect = pdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight });
@@ -687,7 +749,8 @@ async function signPdfAtPoint({ file, source, signing, placement }) {
     userId: signing.user.id,
     blob,
     extension: "pdf",
-    mimeType: "application/pdf"
+    mimeType: "application/pdf",
+    pin
   });
 }
 
@@ -742,11 +805,11 @@ function rotatedPdfImageOptions({ x, y, width, height, rotation, degrees }) {
   return { x, y, width, height };
 }
 
-async function signImageAtPoint({ file, source, signing, placement }) {
+async function signImageAtPoint({ file, source, signing, placement, pin }) {
   const imageUrl = await fetchObjectUrl(source);
   try {
     const image = await loadImage(imageUrl);
-    const signatureImage = await loadImage(signing.signature.firma_data_url);
+    const signatureImage = await loadImage(await signatureInkDataUrl(signing.signature.firma_data_url));
     const canvas = document.createElement("canvas");
     canvas.width = image.naturalWidth || image.width;
     canvas.height = image.naturalHeight || image.height;
@@ -767,7 +830,8 @@ async function signImageAtPoint({ file, source, signing, placement }) {
       userId: signing.user.id,
       blob,
       extension: "jpg",
-      mimeType: "image/jpeg"
+      mimeType: "image/jpeg",
+      pin
     });
   } finally {
     URL.revokeObjectURL(imageUrl);
@@ -938,6 +1002,27 @@ function dataUrlToBytes(dataUrl) {
     bytes[index] = binary.charCodeAt(index);
   }
   return bytes;
+}
+
+async function signatureInkDataUrl(dataUrl) {
+  if (!dataUrl) return dataUrl;
+  if (signatureTintCache.has(dataUrl)) return signatureTintCache.get(dataUrl);
+
+  const tinted = loadImage(dataUrl).then((image) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth || image.width;
+    canvas.height = image.naturalHeight || image.height;
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    context.globalCompositeOperation = "source-in";
+    context.fillStyle = SIGNATURE_INK_COLOR;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.globalCompositeOperation = "source-over";
+    return canvas.toDataURL("image/png");
+  });
+
+  signatureTintCache.set(dataUrl, tinted);
+  return tinted;
 }
 
 function loadImage(source) {

@@ -1,14 +1,14 @@
 import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260708-14";
 import { closeModal, openModal } from "./components/modal.js?v=20260708-12";
 import { toast } from "./components/toast.js?v=20260708-12";
-import { dataService } from "./services/dataService.js?v=20260710-8";
+import { dataService } from "./services/dataService.js?v=20260713-2";
 import { renderDashboard } from "./pages/dashboard.js?v=20260710-1";
-import { renderNewRequest } from "./pages/newRequest.js?v=20260708-12";
+import { renderNewRequest } from "./pages/newRequest.js?v=20260713-1";
 import { clearRequestTableState, renderRequestsTable } from "./pages/requestsTable.js?v=20260710-9";
-import { renderRequestDetail } from "./pages/requestDetail.js?v=20260710-11";
-import { renderUsers } from "./pages/users.js?v=20260708-12";
-import { renderCatalogs } from "./pages/catalogs.js?v=20260708-12";
-import { renderProfile } from "./pages/profile.js?v=20260710-2";
+import { renderRequestDetail } from "./pages/requestDetail.js?v=20260713-2";
+import { renderUsers } from "./pages/users.js?v=20260713-1";
+import { renderCatalogs } from "./pages/catalogs.js?v=20260713-1";
+import { renderProfile } from "./pages/profile.js?v=20260713-2";
 import { renderNotifications } from "./pages/notifications.js?v=20260710-1";
 import { startBrowserNotificationStream, stopBrowserNotificationStream, syncAppBadge } from "./services/browserNotifications.js?v=20260710-4";
 import { ROLES, STATUS } from "./utils/constants.js";
@@ -46,6 +46,12 @@ async function refresh(options = {}) {
 }
 
 function navigate(route) {
+  if (requiresSecuritySetup() && route !== "profile") {
+    state.route = "profile";
+    toast("Completa tu perfil y seguridad de firma antes de continuar.", "warning");
+    render();
+    return;
+  }
   if (state.route !== route) clearRequestTableState();
   state.route = route;
   render();
@@ -248,6 +254,7 @@ function render() {
     hideLaunchScreen();
     return;
   }
+  if (requiresSecuritySetup()) state.route = "profile";
   const shell = renderAppShell({
     user: state.user,
     route: state.route,
@@ -262,6 +269,18 @@ function render() {
   const outlet = shell.querySelector("[data-page]");
   outlet.append(renderPage());
   hideLaunchScreen();
+}
+
+function requiresSecuritySetup() {
+  if (!state.user || !state.data) return false;
+  const hasBasicProfile = Boolean(
+    String(state.user.nombre || "").trim()
+    && String(state.user.apellido || "").trim()
+    && state.user.onboarding_completed_at
+  );
+  const signature = state.data.firmas_usuarios?.find((item) => item.usuario_id === state.user.id);
+  const needsSignaturePin = [ROLES.ADMIN, ROLES.APPROVER].includes(state.user.rol) && !signature?.pin_updated_at;
+  return !hasBasicProfile || needsSignaturePin;
 }
 
 function hideLaunchScreen() {

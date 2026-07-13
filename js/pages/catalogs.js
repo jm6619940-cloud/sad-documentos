@@ -1,5 +1,5 @@
 import { pageTitle } from "../components/layout.js";
-import { dataService } from "../services/dataService.js?v=20260710-6";
+import { dataService } from "../services/dataService.js?v=20260713-2";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
@@ -22,6 +22,10 @@ function catalogPanel(table, title, rows, refresh) {
       <div class="detail-grid">
         <label class="field"><span>Nombre</span><input class="input form-control" name="nombre" required></label>
         <label class="field"><span>Descripcion</span><input class="input form-control" name="descripcion"></label>
+        <label class="field form-check catalog-active-check">
+          <input class="form-check-input" type="checkbox" name="activo" checked>
+          <span class="form-check-label">Disponible para nuevas solicitudes</span>
+        </label>
       </div>
       <div class="toolbar">
         <button class="button btn btn-primary" type="submit">Guardar</button>
@@ -30,14 +34,18 @@ function catalogPanel(table, title, rows, refresh) {
     </form>
     <div class="table-wrap">
       <table class="table table-hover align-middle">
-        <thead><tr><th>Nombre</th><th>Descripcion</th><th>Creado</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Descripcion</th><th>Estado</th><th>Creado</th><th></th></tr></thead>
         <tbody>
           ${rows.map((item) => `
             <tr>
               <td data-label="Nombre">${escapeHtml(item.nombre)}</td>
               <td data-label="Descripcion">${textOrDash(item.descripcion)}</td>
+              <td data-label="Estado"><span class="badge ${item.activo === false ? "inactivo" : "activo"}">${item.activo === false ? "Inactivo" : "Activo"}</span></td>
               <td data-label="Creado">${new Date(item.created_at).toLocaleDateString("es-DO")}</td>
-              <td data-label=""><button class="button secondary btn btn-outline-secondary btn-sm" data-edit="${escapeAttr(item.id)}">Editar</button></td>
+              <td class="toolbar" data-label="">
+                <button class="button secondary btn btn-outline-secondary btn-sm" data-edit="${escapeAttr(item.id)}">Editar</button>
+                <button class="button secondary btn btn-outline-secondary btn-sm" data-toggle-catalog="${escapeAttr(item.id)}">${item.activo === false ? "Activar" : "Desactivar"}</button>
+              </td>
             </tr>
           `).join("")}
         </tbody>
@@ -49,9 +57,15 @@ function catalogPanel(table, title, rows, refresh) {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(form).entries());
     if (!values.id) delete values.id;
+    values.activo = form.elements.activo.checked;
     await dataService.upsertCatalog(table, values);
     toast(`${title} actualizado.`, "success");
     await refresh();
+  });
+  form.addEventListener("reset", () => {
+    requestAnimationFrame(() => {
+      form.elements.activo.checked = true;
+    });
   });
   panel.querySelectorAll("[data-edit]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -59,6 +73,15 @@ function catalogPanel(table, title, rows, refresh) {
       form.elements.id.value = row.id;
       form.elements.nombre.value = row.nombre;
       form.elements.descripcion.value = row.descripcion || "";
+      form.elements.activo.checked = row.activo !== false;
+    });
+  });
+  panel.querySelectorAll("[data-toggle-catalog]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const row = rows.find((item) => item.id === button.dataset.toggleCatalog);
+      await dataService.setCatalogActive(table, row.id, row.activo === false);
+      toast(`${title} ${row.activo === false ? "activado" : "desactivado"}.`, "success");
+      await refresh();
     });
   });
   return panel;

@@ -1,49 +1,80 @@
 import { ROLE_LABELS, ROLES } from "../utils/constants.js";
 import { pageTitle } from "../components/layout.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
-import { dataService } from "../services/dataService.js?v=20260710-6";
+import { dataService } from "../services/dataService.js?v=20260713-2";
 import { toast } from "../components/toast.js?v=20260708-12";
 
 export function renderProfile({ user, data, refresh }) {
   const departamento = data.departamentos.find((item) => item.id === user.departamento_id);
   const signature = data.firmas_usuarios?.find((item) => item.usuario_id === user.id);
   const canRegisterSignature = [ROLES.APPROVER, ROLES.ADMIN].includes(user.rol);
+  const needsSecuritySetup = canRegisterSignature && !signature?.pin_updated_at;
+  const activeDepartments = data.departamentos.filter((item) => item.activo !== false);
   const page = document.createElement("div");
   page.className = "grid";
   page.append(pageTitle("Perfil", "Informacion de tu cuenta."));
   page.insertAdjacentHTML("beforeend", `
     <section class="panel">
-      <div class="detail-grid">
-        <div class="detail-box"><strong>Nombre</strong><p>${textOrDash(`${user.nombre || ""} ${user.apellido || ""}`)}</p></div>
-        <div class="detail-box"><strong>Correo</strong><p>${escapeHtml(user.correo)}</p></div>
-        <div class="detail-box"><strong>Departamento</strong><p>${textOrDash(departamento?.nombre)}</p></div>
-        <div class="detail-box"><strong>Rol</strong><p>${escapeHtml(ROLE_LABELS[user.rol] || user.rol)}</p></div>
+      <div class="compact-section-header">
+        <div>
+          <h3>Datos personales</h3>
+          <p>Estos datos quedan asociados a tus acciones y evidencias dentro del sistema.</p>
+        </div>
+        ${user.onboarding_completed_at ? "<span class='badge Aprobado'>Verificado</span>" : "<span class='badge Pendiente'>Pendiente</span>"}
       </div>
-      <p>El cambio de correo y contrasena no esta disponible para usuarios en esta version.</p>
+      <form class="form" data-profile-form>
+        <div class="row g-3">
+          <label class="field col-12 col-md-6"><span>Nombre</span><input class="input form-control" name="nombre" required value="${escapeAttr(user.nombre || "")}"></label>
+          <label class="field col-12 col-md-6"><span>Apellido</span><input class="input form-control" name="apellido" required value="${escapeAttr(user.apellido || "")}"></label>
+          <label class="field col-12 col-md-6"><span>Telefono</span><input class="input form-control" name="telefono" autocomplete="tel" value="${escapeAttr(user.telefono || "")}"></label>
+          <label class="field col-12 col-md-6"><span>Documento de identidad</span><input class="input form-control" name="documento_identidad" value="${escapeAttr(user.documento_identidad || "")}"></label>
+          <label class="field col-12 col-md-6"><span>Cargo</span><input class="input form-control" name="cargo" value="${escapeAttr(user.cargo || "")}"></label>
+          <label class="field col-12 col-md-6"><span>Departamento</span><select class="form-select" name="departamento_id">
+            <option value="">Sin departamento</option>
+            ${activeDepartments.map((item) => `<option value="${escapeAttr(item.id)}" ${item.id === user.departamento_id ? "selected" : ""}>${escapeHtml(item.nombre)}</option>`).join("")}
+            ${departamento && departamento.activo === false ? `<option value="${escapeAttr(departamento.id)}" selected>${escapeHtml(`${departamento.nombre} (inactivo)`)}</option>` : ""}
+          </select></label>
+        </div>
+        <div class="detail-grid detail-grid-compact">
+          <div class="detail-box"><strong>Correo verificado</strong><p>${escapeHtml(user.correo)}</p></div>
+          <div class="detail-box"><strong>Rol</strong><p>${escapeHtml(ROLE_LABELS[user.rol] || user.rol)}</p></div>
+        </div>
+        <div class="toolbar">
+          <button class="button btn btn-primary" type="submit">Guardar datos</button>
+        </div>
+      </form>
     </section>
     ${canRegisterSignature ? `
       <section class="panel signature-panel">
         <div class="compact-section-header">
           <div>
-            <h3>Firma digitalizada</h3>
-            <p>Esta firma se usa para colocarla visualmente sobre documentos aprobados.</p>
+            <h3>Firma avanzada interna</h3>
+            <p>Tu firma se protege con PIN y cada uso registra usuario, fecha, IP, navegador, version y metodo de autenticacion.</p>
           </div>
-          ${signature ? "<span class='badge Aprobado'>Registrada</span>" : "<span class='badge Pendiente'>Pendiente</span>"}
+          ${signature?.pin_updated_at ? "<span class='badge Aprobado'>PIN activo</span>" : "<span class='badge Pendiente'>Requiere PIN</span>"}
         </div>
+        ${needsSecuritySetup ? "<p class='inline-warning'>Para aprobar documentos debes crear tu firma y un PIN numerico.</p>" : ""}
         ${signature ? `
           <div class="signature-current">
-            <span>Firma actual</span>
+            <span>Firma actual · version ${escapeHtml(signature.version || 1)}</span>
             <img src="${escapeAttr(signature.firma_data_url)}" alt="Firma registrada">
           </div>
         ` : ""}
         <form class="signature-form" data-signature-form>
           <label class="field">
-            <span>Dibuja tu firma</span>
+            <span>${signature ? "Dibuja la nueva firma" : "Dibuja tu firma"}</span>
             <canvas class="signature-pad" width="860" height="260" data-signature-pad></canvas>
           </label>
+          <div class="row g-3">
+            ${signature?.pin_updated_at ? `
+              <label class="field col-12 col-md-6"><span>PIN actual</span><input class="input form-control" type="password" name="pin_actual" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
+            ` : `
+              <label class="field col-12 col-md-6"><span>Crea tu PIN de firma</span><input class="input form-control" type="password" name="pin_nuevo" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
+            `}
+          </div>
           <div class="toolbar">
             <button class="button secondary btn btn-outline-secondary" type="button" data-clear-signature>Limpiar</button>
-            <button class="button btn btn-primary" type="submit">Guardar firma</button>
+            <button class="button btn btn-primary" type="submit">${signature ? "Reemplazar firma" : "Guardar firma y PIN"}</button>
           </div>
         </form>
       </section>
@@ -51,11 +82,30 @@ export function renderProfile({ user, data, refresh }) {
   `);
 
   const form = page.querySelector("[data-signature-form]");
-  if (form) setupSignaturePad({ form, user, refresh });
+  const profileForm = page.querySelector("[data-profile-form]");
+  profileForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitter = event.submitter;
+    submitter.disabled = true;
+    const previousLabel = submitter.textContent;
+    submitter.textContent = "Guardando...";
+    try {
+      const values = Object.fromEntries(new FormData(profileForm).entries());
+      await dataService.completeOnboarding(values, null);
+      toast("Datos guardados correctamente.", "success");
+      await refresh();
+    } catch (error) {
+      toast(error.message || "No fue posible guardar tus datos.", "error");
+    } finally {
+      submitter.textContent = previousLabel;
+      submitter.disabled = false;
+    }
+  });
+  if (form) setupSignaturePad({ form, user, signature, refresh });
   return page;
 }
 
-function setupSignaturePad({ form, user, refresh }) {
+function setupSignaturePad({ form, user, signature, refresh }) {
   const canvas = form.querySelector("[data-signature-pad]");
   const context = canvas.getContext("2d");
   let drawing = false;
@@ -70,7 +120,7 @@ function setupSignaturePad({ form, user, refresh }) {
     context.lineWidth = 2.6;
     context.lineCap = "round";
     context.lineJoin = "round";
-    context.strokeStyle = "#0f172a";
+    context.strokeStyle = "#1d4ed8";
   }
 
   function point(event) {
@@ -121,7 +171,16 @@ function setupSignaturePad({ form, user, refresh }) {
     const previousLabel = submitter.textContent;
     submitter.textContent = "Guardando...";
     try {
-      await dataService.saveUserSignature(user.id, canvas.toDataURL("image/png"));
+      const values = Object.fromEntries(new FormData(form).entries());
+      const currentPin = String(values.pin_actual || "").trim();
+      const newPin = String(values.pin_nuevo || "").trim();
+      if (signature?.pin_updated_at && !/^[0-9]{4,12}$/.test(currentPin)) {
+        throw new Error("Ingresa tu PIN actual.");
+      }
+      if (!signature?.pin_updated_at && !/^[0-9]{4,12}$/.test(newPin)) {
+        throw new Error("Crea un PIN numerico de 4 a 12 digitos.");
+      }
+      await dataService.saveUserSignature(user.id, canvas.toDataURL("image/png"), { currentPin, newPin });
       toast("Firma guardada correctamente.", "success");
       await refresh();
     } catch (error) {

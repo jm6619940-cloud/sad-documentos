@@ -1,6 +1,6 @@
 import { ROLES, ROLE_LABELS } from "../utils/constants.js";
 import { pageTitle } from "../components/layout.js";
-import { dataService } from "../services/dataService.js?v=20260710-6";
+import { dataService } from "../services/dataService.js?v=20260713-2";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 
@@ -18,7 +18,7 @@ export function renderUsers({ data, refresh }) {
           <label class="field col-12 col-md-6 col-xl-4"><span>Apellido</span><input class="input form-control" name="apellido" required></label>
           <label class="field col-12 col-md-6 col-xl-4"><span>Correo</span><input class="input form-control" name="correo" type="email" required></label>
           <label class="field col-12 col-md-6"><span>Rol</span><select class="form-select" name="rol" required>${Object.values(ROLES).map((role) => `<option value="${escapeAttr(role)}">${escapeHtml(ROLE_LABELS[role])}</option>`).join("")}</select></label>
-          <label class="field col-12 col-md-6"><span>Departamento</span><select class="form-select" name="departamento_id" required>${data.departamentos.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(item.nombre)}</option>`).join("")}</select></label>
+          <label class="field col-12 col-md-6"><span>Departamento</span><select class="form-select" name="departamento_id" required>${data.departamentos.map((item) => `<option value="${escapeAttr(item.id)}">${escapeHtml(`${item.nombre}${item.activo === false ? " (inactivo)" : ""}`)}</option>`).join("")}</select></label>
         </div>
         <div class="toolbar">
           <button class="button btn btn-primary" type="submit">Guardar usuario</button>

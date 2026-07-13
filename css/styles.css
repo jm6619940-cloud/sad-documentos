@@ -202,6 +202,23 @@ p {
   font-size: 0.92rem;
 }
 
+.catalog-active-check {
+  align-self: end;
+  min-height: 44px;
+  padding: 10px 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.catalog-active-check input {
+  width: 1rem;
+}
+
+.catalog-active-check span {
+  margin: 0;
+}
+
 .input,
 select,
 textarea {
