@@ -1,7 +1,7 @@
 import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260708-14";
 import { closeModal, openModal } from "./components/modal.js?v=20260708-12";
 import { toast } from "./components/toast.js?v=20260708-12";
-import { dataService } from "./services/dataService.js?v=20260713-2";
+import { dataService } from "./services/dataService.js?v=20260713-3";
 import { renderDashboard } from "./pages/dashboard.js?v=20260710-1";
 import { renderNewRequest } from "./pages/newRequest.js?v=20260713-1";
 import { clearRequestTableState, renderRequestsTable } from "./pages/requestsTable.js?v=20260710-9";

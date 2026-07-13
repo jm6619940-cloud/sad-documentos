@@ -11,6 +11,15 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
+async function ensureActiveSession(supabase) {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.access_token) {
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    throw new Error("Tu sesion vencio o quedo invalida. Inicia sesion otra vez para continuar.");
+  }
+  return data.session;
+}
+
 const STORAGE_MIME_BY_EXTENSION = {
   pdf: "application/pdf",
   doc: "application/msword",
@@ -149,7 +158,11 @@ export const dataService = {
 
   async getCurrentUser() {
     const supabase = await getSupabase();
-    const { data } = await supabase.auth.getUser();
+    const { data, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+      return null;
+    }
     if (!data.user) return null;
     const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
     if (error) return null;
@@ -345,6 +358,7 @@ export const dataService = {
       throw new Error("La firma debe guardarse como imagen PNG.");
     }
     const supabase = await getSupabase();
+    await ensureActiveSession(supabase);
     const { error } = await supabase.rpc("registrar_o_actualizar_firma_usuario", {
       p_firma_data_url: firmaDataUrl,
       p_pin_actual: currentPin,

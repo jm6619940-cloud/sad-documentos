@@ -1,6 +1,6 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260713-2";
+import { dataService } from "../services/dataService.js?v=20260713-3";
 import { getSupabase } from "../services/supabaseClient.js";
 import { toast } from "../components/toast.js?v=20260708-12";
 import { closeModal, openModal } from "../components/modal.js?v=20260708-12";
