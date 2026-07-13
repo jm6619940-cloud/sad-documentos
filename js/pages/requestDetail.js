@@ -12,6 +12,7 @@ const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 const PDF_LIB_URL = "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm";
 const SIGNATURE_INK_COLOR = "#1d4ed8";
+const SIGNATURE_DEFAULT_SCALE = 100;
 const signatureTintCache = new Map();
 let pdfJsPromise;
 let pdfLibPromise;
@@ -522,6 +523,8 @@ function startSigningMode({ root, file, source, signing }) {
 
   const sizeInput = root.querySelector("[data-signature-size]");
   const sizeLabel = root.querySelector("[data-signature-size-label]");
+  sizeInput.value = String(SIGNATURE_DEFAULT_SCALE);
+  sizeLabel.textContent = `${SIGNATURE_DEFAULT_SCALE}%`;
   const message = root.querySelector("[data-signing-message]");
   const confirmButton = root.querySelector("[data-confirm-signature]");
   const cancelButton = root.querySelector("[data-cancel-signature]");
@@ -535,7 +538,7 @@ function startSigningMode({ root, file, source, signing }) {
     targetWidth: 0,
     pdfViewport: null,
     pageIndex: 0,
-    sizeScale: Number(sizeInput.value) / 100,
+    sizeScale: SIGNATURE_DEFAULT_SCALE / 100,
     overlay: null
   };
 
