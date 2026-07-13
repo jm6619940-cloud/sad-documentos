@@ -359,10 +359,10 @@ export const dataService = {
     }
     const supabase = await getSupabase();
     await ensureActiveSession(supabase);
-    const { error } = await supabase.rpc("registrar_o_actualizar_firma_usuario", {
-      p_firma_data_url: firmaDataUrl,
-      p_pin_actual: currentPin,
-      p_pin_nuevo: newPin
+    const { error } = await supabase.rpc("guardar_firma_usuario_rpc", {
+      firma_data_url: firmaDataUrl,
+      pin_actual: currentPin,
+      pin_nuevo: newPin
     });
     if (error) throw error;
   },

@@ -1,5 +1,5 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260713-3";
+import { dataService } from "./dataService.js?v=20260713-4";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
