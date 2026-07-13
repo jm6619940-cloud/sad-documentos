@@ -354,7 +354,7 @@ async function processScannedSignature(file) {
     outputCanvas.width = cropWidth;
     outputCanvas.height = cropHeight;
     outputCanvas.getContext("2d").putImageData(output, 0, 0);
-    return outputCanvas;
+    return renderSmoothSignatureCanvas(outputCanvas);
   } finally {
     URL.revokeObjectURL(imageUrl);
   }
@@ -565,25 +565,55 @@ function selectSignatureCluster(components, width, height) {
     }
   }
 
-  return Array.from(selected);
+  const minimumUsefulCount = Math.max(18, seed.count * 0.055);
+  return Array.from(selected).filter((component) => (
+    component === seed
+    || component.count >= minimumUsefulCount
+    || (component.width >= seed.width * 0.1 && component.height >= seed.height * 0.1)
+  ));
 }
 
 function softenSignatureMask({ mask, alphaMap, width, height }) {
-  const copy = alphaMap.slice();
-  for (let y = 1; y < height - 1; y += 1) {
-    for (let x = 1; x < width - 1; x += 1) {
-      const index = y * width + x;
-      if (!mask[index]) continue;
-      const strongestNeighbor = Math.max(
-        copy[index],
-        copy[index - 1],
-        copy[index + 1],
-        copy[index - width],
-        copy[index + width]
-      );
-      alphaMap[index] = Math.max(copy[index], Math.round(strongestNeighbor * 0.94));
+  for (let pass = 0; pass < 2; pass += 1) {
+    const alphaCopy = alphaMap.slice();
+    const maskCopy = mask.slice();
+    for (let y = 1; y < height - 1; y += 1) {
+      for (let x = 1; x < width - 1; x += 1) {
+        const index = y * width + x;
+        const strongestNeighbor = Math.max(
+          alphaCopy[index - 1],
+          alphaCopy[index + 1],
+          alphaCopy[index - width],
+          alphaCopy[index + width],
+          alphaCopy[index - width - 1],
+          alphaCopy[index - width + 1],
+          alphaCopy[index + width - 1],
+          alphaCopy[index + width + 1]
+        );
+        if (!maskCopy[index] && strongestNeighbor < 135) continue;
+        mask[index] = 1;
+        alphaMap[index] = Math.max(alphaCopy[index], Math.round(strongestNeighbor * (pass ? 0.62 : 0.78)));
+      }
     }
   }
+}
+
+function renderSmoothSignatureCanvas(sourceCanvas) {
+  const scale = 2;
+  const smoothCanvas = document.createElement("canvas");
+  smoothCanvas.width = Math.max(1, sourceCanvas.width * scale);
+  smoothCanvas.height = Math.max(1, sourceCanvas.height * scale);
+  const smoothContext = smoothCanvas.getContext("2d");
+  smoothContext.imageSmoothingEnabled = true;
+  smoothContext.imageSmoothingQuality = "high";
+  smoothContext.scale(scale, scale);
+  smoothContext.filter = "blur(0.35px)";
+  smoothContext.drawImage(sourceCanvas, 0, 0);
+  smoothContext.filter = "none";
+  smoothContext.globalAlpha = 0.85;
+  smoothContext.drawImage(sourceCanvas, 0, 0);
+  smoothContext.globalAlpha = 1;
+  return smoothCanvas;
 }
 
 function drawProcessedSignatureOnPad({ canvas, context, processed }) {

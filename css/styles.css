@@ -1824,7 +1824,11 @@ tr:hover td {
 }
 
 .signature-mode-switch input {
-  margin: 0;
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .signature-mode-switch label:has(input:checked) {
