@@ -511,8 +511,8 @@ function startSigningMode({ root, file, source, signing }) {
       <span data-signing-message>Toca el documento, arrastra la firma y confirma cuando este lista.</span>
       <label class="signing-size-control">
         <span>Tamano</span>
-        <input type="range" min="60" max="260" step="10" value="100" data-signature-size>
-        <output data-signature-size-label>100%</output>
+        <input type="range" min="60" max="260" step="10" value="${SIGNATURE_DEFAULT_SCALE}" autocomplete="off" data-signature-size>
+        <output data-signature-size-label>${SIGNATURE_DEFAULT_SCALE}%</output>
       </label>
       <div class="signing-actions">
         <button class="button btn btn-primary btn-sm signing-confirm-button" type="button" data-confirm-signature disabled>Confirmar firma</button>
@@ -523,8 +523,6 @@ function startSigningMode({ root, file, source, signing }) {
 
   const sizeInput = root.querySelector("[data-signature-size]");
   const sizeLabel = root.querySelector("[data-signature-size-label]");
-  sizeInput.value = String(SIGNATURE_DEFAULT_SCALE);
-  sizeLabel.textContent = `${SIGNATURE_DEFAULT_SCALE}%`;
   const message = root.querySelector("[data-signing-message]");
   const confirmButton = root.querySelector("[data-confirm-signature]");
   const cancelButton = root.querySelector("[data-cancel-signature]");
@@ -542,11 +540,16 @@ function startSigningMode({ root, file, source, signing }) {
     overlay: null
   };
 
-  sizeInput.addEventListener("input", () => {
-    sizeLabel.textContent = `${sizeInput.value}%`;
-    placement.sizeScale = Number(sizeInput.value) / 100;
+  const setSignatureScale = (value) => {
+    sizeInput.value = String(value);
+    sizeLabel.textContent = `${value}%`;
+    placement.sizeScale = Number(value) / 100;
     updateSignatureOverlay(placement);
-  });
+  };
+
+  sizeInput.addEventListener("input", () => setSignatureScale(sizeInput.value));
+  setSignatureScale(SIGNATURE_DEFAULT_SCALE);
+  requestAnimationFrame(() => setSignatureScale(SIGNATURE_DEFAULT_SCALE));
 
   const targets = isPdf(file)
     ? [...root.querySelectorAll(".pdf-page canvas")]
