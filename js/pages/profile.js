@@ -295,7 +295,7 @@ async function processScannedSignature(file) {
   const imageUrl = URL.createObjectURL(file);
   try {
     const image = await loadImage(imageUrl);
-    const maxSide = 1800;
+    const maxSide = 1600;
     const sourceWidth = image.naturalWidth || image.width;
     const sourceHeight = image.naturalHeight || image.height;
     const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
@@ -307,8 +307,9 @@ async function processScannedSignature(file) {
     const sourceContext = sourceCanvas.getContext("2d", { willReadFrequently: true });
     sourceContext.drawImage(image, 0, 0, width, height);
 
-    const bounds = scannedInkBounds(sourceContext, width, height);
-    if (!bounds) throw new Error("No detectamos la firma. Usa una foto con fondo claro y tinta visible.");
+    const extraction = extractSignatureInk(sourceContext, width, height);
+    if (!extraction) throw new Error("No detectamos la firma. Usa una foto con fondo claro y tinta visible.");
+    const { mask, bounds } = extraction;
 
     const padding = 18;
     const cropX = Math.max(0, bounds.x - padding);
@@ -321,17 +322,15 @@ async function processScannedSignature(file) {
     const output = new ImageData(cropWidth, cropHeight);
 
     for (let index = 0; index < pixels.data.length; index += 4) {
-      const red = pixels.data[index];
-      const green = pixels.data[index + 1];
-      const blue = pixels.data[index + 2];
       const alpha = pixels.data[index + 3];
-      const brightness = (red + green + blue) / 3;
-      const darkness = Math.max(0, 245 - brightness);
-      const inkAlpha = alpha > 10 ? Math.min(255, Math.round(darkness * 2.7)) : 0;
+      const pixelOffset = index / 4;
+      const sourceX = cropX + (pixelOffset % cropWidth);
+      const sourceY = cropY + Math.floor(pixelOffset / cropWidth);
+      const inkAlpha = mask[sourceY * width + sourceX] && alpha > 10 ? 235 : 0;
       output.data[index] = 29;
       output.data[index + 1] = 78;
       output.data[index + 2] = 216;
-      output.data[index + 3] = inkAlpha > 38 ? inkAlpha : 0;
+      output.data[index + 3] = inkAlpha;
     }
 
     const outputCanvas = document.createElement("canvas");
@@ -344,34 +343,117 @@ async function processScannedSignature(file) {
   }
 }
 
-function scannedInkBounds(context, width, height) {
+function extractSignatureInk(context, width, height) {
   const pixels = context.getImageData(0, 0, width, height).data;
+  const gray = new Uint8ClampedArray(width * height);
+  const candidates = new Uint8Array(width * height);
+  const visited = new Uint8Array(width * height);
+  const mask = new Uint8Array(width * height);
+  const radius = Math.max(8, Math.round(Math.min(width, height) * 0.014));
+
+  for (let index = 0; index < gray.length; index += 1) {
+    const pixelIndex = index * 4;
+    gray[index] = Math.round((pixels[pixelIndex] * 0.299) + (pixels[pixelIndex + 1] * 0.587) + (pixels[pixelIndex + 2] * 0.114));
+  }
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      const pixelIndex = index * 4;
+      const alpha = pixels[pixelIndex + 3];
+      if (alpha <= 10) continue;
+      const brightness = gray[index];
+      const localBackground = localGrayAverage(gray, width, height, x, y, radius);
+      const localContrast = localBackground - brightness;
+      if (brightness < 218 && localContrast > 18) candidates[index] = 1;
+    }
+  }
+
+  const keptBounds = collectSignatureComponents({ candidates, visited, mask, width, height });
+  if (!keptBounds) return null;
+  return { mask, bounds: keptBounds };
+}
+
+function localGrayAverage(gray, width, height, x, y, radius) {
+  const left = Math.max(0, x - radius);
+  const right = Math.min(width - 1, x + radius);
+  const top = Math.max(0, y - radius);
+  const bottom = Math.min(height - 1, y + radius);
+  return (
+    gray[y * width + left]
+    + gray[y * width + right]
+    + gray[top * width + x]
+    + gray[bottom * width + x]
+    + gray[top * width + left]
+    + gray[top * width + right]
+    + gray[bottom * width + left]
+    + gray[bottom * width + right]
+  ) / 8;
+}
+
+function collectSignatureComponents({ candidates, visited, mask, width, height }) {
   let minX = width;
   let minY = height;
   let maxX = -1;
   let maxY = -1;
-  let count = 0;
+  let keptPixels = 0;
+  const minComponentPixels = Math.max(10, Math.round(width * height * 0.000006));
+  const queue = [];
 
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const index = (y * width + x) * 4;
-      const alpha = pixels[index + 3];
-      if (alpha <= 10) continue;
-      const red = pixels[index];
-      const green = pixels[index + 1];
-      const blue = pixels[index + 2];
-      const brightness = (red + green + blue) / 3;
-      const contrast = Math.max(red, green, blue) - Math.min(red, green, blue);
-      if (brightness > 218 && contrast < 48) continue;
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x);
-      maxY = Math.max(maxY, y);
+  for (let start = 0; start < candidates.length; start += 1) {
+    if (!candidates[start] || visited[start]) continue;
+    let head = 0;
+    let count = 0;
+    let componentMinX = width;
+    let componentMinY = height;
+    let componentMaxX = -1;
+    let componentMaxY = -1;
+    queue.length = 0;
+    queue.push(start);
+    visited[start] = 1;
+
+    while (head < queue.length) {
+      const index = queue[head];
+      head += 1;
+      const x = index % width;
+      const y = Math.floor(index / width);
       count += 1;
+      componentMinX = Math.min(componentMinX, x);
+      componentMinY = Math.min(componentMinY, y);
+      componentMaxX = Math.max(componentMaxX, x);
+      componentMaxY = Math.max(componentMaxY, y);
+
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          if (!offsetX && !offsetY) continue;
+          const nextX = x + offsetX;
+          const nextY = y + offsetY;
+          if (nextX < 0 || nextX >= width || nextY < 0 || nextY >= height) continue;
+          const nextIndex = nextY * width + nextX;
+          if (!candidates[nextIndex] || visited[nextIndex]) continue;
+          visited[nextIndex] = 1;
+          queue.push(nextIndex);
+        }
+      }
     }
+
+    const componentWidth = componentMaxX - componentMinX + 1;
+    const componentHeight = componentMaxY - componentMinY + 1;
+    const componentArea = componentWidth * componentHeight;
+    const lineLike = componentWidth > width * 0.18 && componentHeight <= Math.max(8, componentWidth * 0.035);
+    const hugeShadow = componentArea > width * height * 0.18 || count > width * height * 0.055;
+    const keep = count >= minComponentPixels && componentWidth >= 3 && componentHeight >= 3 && !lineLike && !hugeShadow;
+    if (!keep) continue;
+
+    for (const index of queue) mask[index] = 1;
+    minX = Math.min(minX, componentMinX);
+    minY = Math.min(minY, componentMinY);
+    maxX = Math.max(maxX, componentMaxX);
+    maxY = Math.max(maxY, componentMaxY);
+    keptPixels += count;
   }
 
-  if (count < 24 || maxX < minX || maxY < minY) return null;
+  if (keptPixels < minComponentPixels || maxX < minX || maxY < minY) return null;
   return {
     x: minX,
     y: minY,

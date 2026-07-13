@@ -8,7 +8,7 @@ import { clearRequestTableState, renderRequestsTable } from "./pages/requestsTab
 import { renderRequestDetail } from "./pages/requestDetail.js?v=20260713-7";
 import { renderUsers } from "./pages/users.js?v=20260713-1";
 import { renderCatalogs } from "./pages/catalogs.js?v=20260713-1";
-import { renderProfile } from "./pages/profile.js?v=20260713-4";
+import { renderProfile } from "./pages/profile.js?v=20260713-5";
 import { renderNotifications } from "./pages/notifications.js?v=20260710-1";
 import { startBrowserNotificationStream, stopBrowserNotificationStream, syncAppBadge } from "./services/browserNotifications.js?v=20260710-4";
 import { ROLES, STATUS } from "./utils/constants.js";
