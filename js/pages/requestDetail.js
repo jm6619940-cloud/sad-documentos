@@ -510,7 +510,7 @@ function startSigningMode({ root, file, source, signing }) {
       <span data-signing-message>Toca el documento, arrastra la firma y confirma cuando este lista.</span>
       <label class="signing-size-control">
         <span>Tamano</span>
-        <input type="range" min="60" max="180" step="10" value="100" data-signature-size>
+        <input type="range" min="60" max="260" step="10" value="100" data-signature-size>
         <output data-signature-size-label>100%</output>
       </label>
       <div class="signing-actions">
@@ -688,7 +688,8 @@ function renderSignatureOverlay({ placement, signing }) {
 
 function updateSignatureOverlay(placement) {
   if (!placement.overlay) return;
-  const widthPx = clamp((placement.targetWidth || placement.stage.getBoundingClientRect().width) * 0.32 * placement.sizeScale, 64, 320);
+  const baseWidth = placement.targetWidth || placement.stage.getBoundingClientRect().width;
+  const widthPx = clamp(baseWidth * 0.28 * placement.sizeScale, 72, Math.min(560, baseWidth * 0.72));
   placement.overlay.style.left = `${placement.visualX}px`;
   placement.overlay.style.top = `${placement.visualY}px`;
   placement.overlay.style.width = `${widthPx}px`;
@@ -758,7 +759,7 @@ function pdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight }) 
   const aspect = signatureImage.height / signatureImage.width;
   const viewport = placement.pdfViewport;
   if (!viewport?.convertToPdfPoint) {
-    const width = Math.min(Math.min(260, pageWidth * 0.32) * placement.sizeScale, pageWidth - 24);
+    const width = Math.min(pageWidth * 0.28 * placement.sizeScale, pageWidth * 0.72, pageWidth - 24);
     const height = width * aspect;
     return {
       x: (placement.ratioX * pageWidth) - (width / 2),
@@ -771,7 +772,7 @@ function pdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight }) 
   const viewportWidth = Math.max(1, viewport.width);
   const centerX = placement.ratioX * viewportWidth;
   const centerY = placement.ratioY * Math.max(1, viewport.height);
-  const visualWidth = clamp(viewportWidth * 0.32 * placement.sizeScale, 64, Math.min(320, viewportWidth));
+  const visualWidth = clamp(viewportWidth * 0.28 * placement.sizeScale, 72, Math.min(560, viewportWidth * 0.72));
   const visualHeight = visualWidth * aspect;
   const topLeft = viewport.convertToPdfPoint(centerX - (visualWidth / 2), centerY - (visualHeight / 2));
   const bottomRight = viewport.convertToPdfPoint(centerX + (visualWidth / 2), centerY + (visualHeight / 2));
@@ -816,7 +817,7 @@ async function signImageAtPoint({ file, source, signing, placement, pin }) {
     const context = canvas.getContext("2d");
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-    const signatureWidth = Math.min(Math.min(canvas.width * 0.32, 620) * placement.sizeScale, canvas.width - 24);
+    const signatureWidth = Math.min(canvas.width * 0.28 * placement.sizeScale, canvas.width * 0.72, canvas.width - 24);
     const signatureHeight = signatureWidth * (signatureImage.height / signatureImage.width);
     const x = clamp((placement.ratioX * canvas.width) - (signatureWidth / 2), 12, canvas.width - signatureWidth - 12);
     const y = clamp((placement.ratioY * canvas.height) - (signatureHeight / 2), 12, canvas.height - signatureHeight - 28);
@@ -1009,11 +1010,26 @@ async function signatureInkDataUrl(dataUrl) {
   if (signatureTintCache.has(dataUrl)) return signatureTintCache.get(dataUrl);
 
   const tinted = loadImage(dataUrl).then((image) => {
+    const sourceCanvas = document.createElement("canvas");
+    sourceCanvas.width = image.naturalWidth || image.width;
+    sourceCanvas.height = image.naturalHeight || image.height;
+    const sourceContext = sourceCanvas.getContext("2d", { willReadFrequently: true });
+    sourceContext.drawImage(image, 0, 0, sourceCanvas.width, sourceCanvas.height);
+
+    const bounds = signatureInkBounds(sourceContext, sourceCanvas.width, sourceCanvas.height);
+    const padding = 10;
+    const cropX = Math.max(0, bounds.x - padding);
+    const cropY = Math.max(0, bounds.y - padding);
+    const cropRight = Math.min(sourceCanvas.width, bounds.x + bounds.width + padding);
+    const cropBottom = Math.min(sourceCanvas.height, bounds.y + bounds.height + padding);
+    const cropWidth = Math.max(1, cropRight - cropX);
+    const cropHeight = Math.max(1, cropBottom - cropY);
+
     const canvas = document.createElement("canvas");
-    canvas.width = image.naturalWidth || image.width;
-    canvas.height = image.naturalHeight || image.height;
+    canvas.width = cropWidth;
+    canvas.height = cropHeight;
     const context = canvas.getContext("2d");
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    context.drawImage(sourceCanvas, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
     context.globalCompositeOperation = "source-in";
     context.fillStyle = SIGNATURE_INK_COLOR;
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -1023,6 +1039,41 @@ async function signatureInkDataUrl(dataUrl) {
 
   signatureTintCache.set(dataUrl, tinted);
   return tinted;
+}
+
+function signatureInkBounds(context, width, height) {
+  const pixels = context.getImageData(0, 0, width, height).data;
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      const alpha = pixels[index + 3];
+      if (alpha <= 12) continue;
+      const red = pixels[index];
+      const green = pixels[index + 1];
+      const blue = pixels[index + 2];
+      if (red > 245 && green > 245 && blue > 245) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return { x: 0, y: 0, width, height };
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1
+  };
 }
 
 function loadImage(source) {
