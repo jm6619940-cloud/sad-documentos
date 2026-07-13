@@ -4,6 +4,9 @@ import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 import { dataService } from "../services/dataService.js?v=20260713-5";
 import { toast } from "../components/toast.js?v=20260708-12";
 
+const OPENCV_JS_URL = "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js";
+let openCvLoader = null;
+
 export function renderProfile({ user, data, refresh }) {
   const departamento = data.departamentos.find((item) => item.id === user.departamento_id);
   const signature = data.firmas_usuarios?.find((item) => item.usuario_id === user.id);
@@ -323,7 +326,7 @@ async function processScannedSignature(file) {
     const sourceContext = sourceCanvas.getContext("2d", { willReadFrequently: true });
     sourceContext.drawImage(image, 0, 0, width, height);
 
-    const extraction = extractSignatureInk(sourceContext, width, height);
+    const extraction = await extractSignatureInkWithOpenCv(sourceCanvas).catch(() => null) || extractSignatureInk(sourceContext, width, height);
     if (!extraction) throw new Error("No detectamos la firma. Usa una foto con fondo claro y tinta visible.");
     const { mask, alphaMap, bounds } = extraction;
 
@@ -411,6 +414,124 @@ function extractSignatureInk(context, width, height) {
   if (!keptBounds) return null;
   softenSignatureMask({ mask, alphaMap, width, height });
   return { mask, alphaMap, bounds: keptBounds };
+}
+
+async function extractSignatureInkWithOpenCv(sourceCanvas) {
+  const cv = await loadOpenCv();
+  if (!cv?.Mat || !cv?.connectedComponentsWithStats) return null;
+
+  const src = cv.imread(sourceCanvas);
+  const gray = new cv.Mat();
+  const blurred = new cv.Mat();
+  const binary = new cv.Mat();
+  const horizontal = new cv.Mat();
+  const noLines = new cv.Mat();
+  const cleaned = new cv.Mat();
+  const labels = new cv.Mat();
+  const stats = new cv.Mat();
+  const centroids = new cv.Mat();
+  const smallKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(2, 2));
+  const horizontalKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(Math.max(28, Math.round(sourceCanvas.width * 0.035)), 1));
+
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(gray, blurred, new cv.Size(3, 3), 0, 0, cv.BORDER_DEFAULT);
+    let blockSize = Math.max(31, Math.round(Math.min(sourceCanvas.width, sourceCanvas.height) / 18));
+    if (blockSize % 2 === 0) blockSize += 1;
+    cv.adaptiveThreshold(blurred, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, blockSize, 13);
+    cv.morphologyEx(binary, horizontal, cv.MORPH_OPEN, horizontalKernel);
+    cv.subtract(binary, horizontal, noLines);
+    cv.morphologyEx(noLines, cleaned, cv.MORPH_CLOSE, smallKernel);
+    cv.medianBlur(cleaned, cleaned, 3);
+
+    const componentCount = cv.connectedComponentsWithStats(cleaned, labels, stats, centroids, 8, cv.CV_32S);
+    const extraction = extractOpenCvComponents({ cv, gray, cleaned, labels, stats, componentCount, width: sourceCanvas.width, height: sourceCanvas.height });
+    if (!extraction) return null;
+    softenSignatureMask(extraction);
+    return extraction;
+  } finally {
+    [src, gray, blurred, binary, horizontal, noLines, cleaned, labels, stats, centroids, smallKernel, horizontalKernel].forEach((mat) => mat?.delete?.());
+  }
+}
+
+function extractOpenCvComponents({ gray, cleaned, labels, stats, componentCount, width, height }) {
+  const totalPixels = width * height;
+  const components = [];
+  const columns = stats.cols;
+
+  for (let label = 1; label < componentCount; label += 1) {
+    const left = stats.data32S[label * columns];
+    const top = stats.data32S[label * columns + 1];
+    const componentWidth = stats.data32S[label * columns + 2];
+    const componentHeight = stats.data32S[label * columns + 3];
+    const count = stats.data32S[label * columns + 4];
+    const componentArea = componentWidth * componentHeight;
+    const density = count / Math.max(1, componentArea);
+    const lineLike = componentWidth > width * 0.08 && componentHeight <= Math.max(8, componentWidth * 0.045);
+    const hugeShape = componentArea > totalPixels * 0.075 || count > totalPixels * 0.032 || density > 0.8;
+    const tooSmall = count < Math.max(16, Math.round(totalPixels * 0.000006)) || componentWidth < 3 || componentHeight < 3;
+    if (tooSmall || lineLike || hugeShape) continue;
+
+    components.push({
+      label,
+      count,
+      minX: left,
+      minY: top,
+      maxX: left + componentWidth - 1,
+      maxY: top + componentHeight - 1,
+      width: componentWidth,
+      height: componentHeight,
+      score: count * Math.max(componentWidth, componentHeight)
+    });
+  }
+
+  if (!components.length) return null;
+  components.sort((a, b) => b.score - a.score);
+  const selected = selectSignatureCluster(components, width, height);
+  if (!selected.length) return null;
+
+  const selectedLabels = new Set(selected.map((component) => component.label));
+  const mask = new Uint8Array(totalPixels);
+  const alphaMap = new Uint8ClampedArray(totalPixels);
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  let keptPixels = 0;
+
+  for (let index = 0; index < labels.data32S.length; index += 1) {
+    const label = labels.data32S[index];
+    if (!selectedLabels.has(label) || cleaned.data[index] === 0) continue;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const brightness = gray.data[index];
+    mask[index] = 1;
+    alphaMap[index] = Math.max(175, Math.min(245, Math.round((245 - brightness) * 2.1)));
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+    keptPixels += 1;
+  }
+
+  if (maxX < minX || maxY < minY) return null;
+  const boundsWidth = maxX - minX + 1;
+  const boundsHeight = maxY - minY + 1;
+  const density = keptPixels / Math.max(1, boundsWidth * boundsHeight);
+  const blankLike = keptPixels < Math.max(55, totalPixels * 0.000075) || density < 0.003;
+  const tooLarge = boundsWidth > width * 0.52 || boundsHeight > height * 0.42;
+  if (blankLike || tooLarge) return null;
+
+  return {
+    mask,
+    alphaMap,
+    bounds: {
+      x: minX,
+      y: minY,
+      width: boundsWidth,
+      height: boundsHeight
+    }
+  };
 }
 
 function localGrayAverage(gray, width, height, x, y, radius) {
@@ -634,5 +755,79 @@ function loadImage(source) {
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("No se pudo leer la imagen de la firma."));
     image.src = source;
+  });
+}
+
+function loadOpenCv() {
+  if (window.cv?.Mat && window.cv?.imread) return Promise.resolve(window.cv);
+  if (openCvLoader) return openCvLoader;
+
+  openCvLoader = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector(`script[src="${OPENCV_JS_URL}"]`);
+    const script = existingScript || document.createElement("script");
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("OpenCV no cargo a tiempo."));
+    }, 12000);
+
+    const finish = () => {
+      waitForOpenCvRuntime()
+        .then((cv) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeout);
+          resolve(cv);
+        })
+        .catch((error) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeout);
+          reject(error);
+        });
+    };
+
+    script.addEventListener("load", finish, { once: true });
+    script.addEventListener("error", () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      reject(new Error("No se pudo cargar OpenCV."));
+    }, { once: true });
+
+    if (!existingScript) {
+      script.src = OPENCV_JS_URL;
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      document.head.appendChild(script);
+    } else if (window.cv) {
+      finish();
+    }
+  });
+
+  return openCvLoader;
+}
+
+function waitForOpenCvRuntime() {
+  return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
+    const check = () => {
+      const cv = window.cv;
+      if (cv?.Mat && cv?.imread && cv?.connectedComponentsWithStats) {
+        resolve(cv);
+        return;
+      }
+      if (cv && typeof cv.then === "function") {
+        cv.then(resolve).catch(reject);
+        return;
+      }
+      if (Date.now() - startedAt > 11000) {
+        reject(new Error("OpenCV no esta disponible."));
+        return;
+      }
+      window.setTimeout(check, 80);
+    };
+    check();
   });
 }
