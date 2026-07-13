@@ -1853,6 +1853,25 @@ tr:hover td {
   font-weight: 750;
 }
 
+.signature-scan-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.signature-scan-actions label {
+  margin: 0;
+  min-height: 46px;
+}
+
+.signature-scan-actions input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .signature-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2314,6 +2333,10 @@ tr:hover td {
   }
 
   .signature-mode-switch {
+    grid-template-columns: 1fr;
+  }
+
+  .signature-scan-actions {
     grid-template-columns: 1fr;
   }
 

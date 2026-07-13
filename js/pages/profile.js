@@ -74,11 +74,18 @@ export function renderProfile({ user, data, refresh }) {
             </label>
           </div>
           <div class="signature-scan-panel" data-signature-scan-panel hidden>
-            <label class="field">
-              <span>Foto o imagen de tu firma</span>
-              <input class="input form-control" type="file" accept="image/*" capture="environment" data-signature-upload>
-            </label>
-            <p>Escribe tu firma en papel blanco, toma una foto con buena luz y la convertiremos a firma digital azul.</p>
+            <span>Foto o imagen de tu firma</span>
+            <div class="signature-scan-actions">
+              <label class="button secondary btn btn-outline-secondary">
+                <span>Elegir de galeria</span>
+                <input type="file" accept="image/*" data-signature-upload data-signature-upload-source="gallery">
+              </label>
+              <label class="button btn btn-primary">
+                <span>Tomar foto</span>
+                <input type="file" accept="image/*" capture="environment" data-signature-upload data-signature-upload-source="camera">
+              </label>
+            </div>
+            <p>Usa papel claro y buena luz. El sistema extrae solo los trazos de la firma y descarta sombras, lineas del papel y ruido.</p>
           </div>
           <label class="field">
             <span data-signature-pad-label>${signature ? "Dibuja la nueva firma" : "Dibuja tu firma"}</span>
@@ -151,7 +158,7 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   const padSizeInput = form.querySelector("[data-signature-pad-size]");
   const padSizeLabel = form.querySelector("[data-signature-pad-size-label]");
   const scanPanel = form.querySelector("[data-signature-scan-panel]");
-  const uploadInput = form.querySelector("[data-signature-upload]");
+  const uploadInputs = Array.from(form.querySelectorAll("[data-signature-upload]"));
   const padLabel = form.querySelector("[data-signature-pad-label]");
   let drawing = false;
   let hasInk = false;
@@ -224,7 +231,9 @@ function setupSignaturePad({ form, user, signature, refresh }) {
 
   form.querySelector("[data-clear-signature]").addEventListener("click", () => {
     clearPad();
-    if (uploadInput) uploadInput.value = "";
+    uploadInputs.forEach((input) => {
+      input.value = "";
+    });
   });
 
   strokeInput?.addEventListener("input", updateStroke);
@@ -236,22 +245,29 @@ function setupSignaturePad({ form, user, signature, refresh }) {
       if (padLabel) padLabel.textContent = mode === "scan" ? "Vista previa digitalizada" : (signature ? "Dibuja la nueva firma" : "Dibuja tu firma");
     });
   });
-  uploadInput?.addEventListener("change", async () => {
-    const file = uploadInput.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast("Selecciona una imagen valida de tu firma.", "warning");
-      uploadInput.value = "";
-      return;
-    }
-    try {
-      const processed = await processScannedSignature(file);
-      drawProcessedSignatureOnPad({ canvas, context, processed });
-      hasInk = true;
-      toast("Firma escaneada y digitalizada.", "success");
-    } catch (error) {
-      toast(error.message || "No fue posible digitalizar la firma.", "error");
-    }
+  uploadInputs.forEach((uploadInput) => {
+    uploadInput.addEventListener("change", async () => {
+      const file = uploadInput.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        toast("Selecciona una imagen valida de tu firma.", "warning");
+        uploadInput.value = "";
+        return;
+      }
+      try {
+        const processed = await processScannedSignature(file);
+        drawProcessedSignatureOnPad({ canvas, context, processed });
+        hasInk = true;
+        uploadInputs.forEach((input) => {
+          if (input !== uploadInput) input.value = "";
+        });
+        toast("Firma escaneada y digitalizada.", "success");
+      } catch (error) {
+        clearPad();
+        uploadInput.value = "";
+        toast(error.message || "No fue posible digitalizar la firma.", "error");
+      }
+    });
   });
 
   form.addEventListener("submit", async (event) => {
@@ -295,7 +311,7 @@ async function processScannedSignature(file) {
   const imageUrl = URL.createObjectURL(file);
   try {
     const image = await loadImage(imageUrl);
-    const maxSide = 1600;
+    const maxSide = 2400;
     const sourceWidth = image.naturalWidth || image.width;
     const sourceHeight = image.naturalHeight || image.height;
     const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
@@ -309,7 +325,7 @@ async function processScannedSignature(file) {
 
     const extraction = extractSignatureInk(sourceContext, width, height);
     if (!extraction) throw new Error("No detectamos la firma. Usa una foto con fondo claro y tinta visible.");
-    const { mask, bounds } = extraction;
+    const { mask, alphaMap, bounds } = extraction;
 
     const padding = 18;
     const cropX = Math.max(0, bounds.x - padding);
@@ -326,7 +342,8 @@ async function processScannedSignature(file) {
       const pixelOffset = index / 4;
       const sourceX = cropX + (pixelOffset % cropWidth);
       const sourceY = cropY + Math.floor(pixelOffset / cropWidth);
-      const inkAlpha = mask[sourceY * width + sourceX] && alpha > 10 ? 235 : 0;
+      const sourceIndex = sourceY * width + sourceX;
+      const inkAlpha = mask[sourceIndex] && alpha > 10 ? alphaMap[sourceIndex] : 0;
       output.data[index] = 29;
       output.data[index + 1] = 78;
       output.data[index + 2] = 216;
@@ -349,29 +366,51 @@ function extractSignatureInk(context, width, height) {
   const candidates = new Uint8Array(width * height);
   const visited = new Uint8Array(width * height);
   const mask = new Uint8Array(width * height);
-  const radius = Math.max(8, Math.round(Math.min(width, height) * 0.014));
+  const alphaMap = new Uint8ClampedArray(width * height);
+  const radius = Math.max(10, Math.round(Math.min(width, height) * 0.018));
 
   for (let index = 0; index < gray.length; index += 1) {
     const pixelIndex = index * 4;
     gray[index] = Math.round((pixels[pixelIndex] * 0.299) + (pixels[pixelIndex + 1] * 0.587) + (pixels[pixelIndex + 2] * 0.114));
   }
 
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
       const index = y * width + x;
       const pixelIndex = index * 4;
       const alpha = pixels[pixelIndex + 3];
       if (alpha <= 10) continue;
+      const red = pixels[pixelIndex];
+      const green = pixels[pixelIndex + 1];
+      const blue = pixels[pixelIndex + 2];
       const brightness = gray[index];
       const localBackground = localGrayAverage(gray, width, height, x, y, radius);
       const localContrast = localBackground - brightness;
-      if (brightness < 218 && localContrast > 18) candidates[index] = 1;
+      const edge = Math.max(
+        Math.abs(brightness - gray[index - 1]),
+        Math.abs(brightness - gray[index + 1]),
+        Math.abs(brightness - gray[index - width]),
+        Math.abs(brightness - gray[index + width])
+      );
+      const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
+      const isLikelyStroke = (
+        (brightness < 178 && localContrast > 16 && edge > 8)
+        || (brightness < 205 && localContrast > 20 && edge > 10 && chroma > 10)
+        || (blue > red + 10 && brightness < 210 && localContrast > 18 && edge > 9)
+      );
+      if (!isLikelyStroke) continue;
+      const confidence = Math.max(localContrast * 8, edge * 7, (230 - brightness) * 1.8);
+      const inkAlpha = Math.max(0, Math.min(245, Math.round(confidence)));
+      if (inkAlpha < 58) continue;
+      candidates[index] = 1;
+      alphaMap[index] = inkAlpha;
     }
   }
 
   const keptBounds = collectSignatureComponents({ candidates, visited, mask, width, height });
   if (!keptBounds) return null;
-  return { mask, bounds: keptBounds };
+  softenSignatureMask({ mask, alphaMap, width, height });
+  return { mask, alphaMap, bounds: keptBounds };
 }
 
 function localGrayAverage(gray, width, height, x, y, radius) {
@@ -392,12 +431,8 @@ function localGrayAverage(gray, width, height, x, y, radius) {
 }
 
 function collectSignatureComponents({ candidates, visited, mask, width, height }) {
-  let minX = width;
-  let minY = height;
-  let maxX = -1;
-  let maxY = -1;
-  let keptPixels = 0;
-  const minComponentPixels = Math.max(10, Math.round(width * height * 0.000006));
+  const components = [];
+  const minComponentPixels = Math.max(14, Math.round(width * height * 0.000008));
   const queue = [];
 
   for (let start = 0; start < candidates.length; start += 1) {
@@ -440,26 +475,115 @@ function collectSignatureComponents({ candidates, visited, mask, width, height }
     const componentWidth = componentMaxX - componentMinX + 1;
     const componentHeight = componentMaxY - componentMinY + 1;
     const componentArea = componentWidth * componentHeight;
-    const lineLike = componentWidth > width * 0.18 && componentHeight <= Math.max(8, componentWidth * 0.035);
-    const hugeShadow = componentArea > width * height * 0.18 || count > width * height * 0.055;
+    const density = count / Math.max(1, componentArea);
+    const lineLike = componentWidth > width * 0.08 && componentHeight <= Math.max(7, componentWidth * 0.045);
+    const hugeShadow = componentArea > width * height * 0.055 || count > width * height * 0.018 || density > 0.72;
     const keep = count >= minComponentPixels && componentWidth >= 3 && componentHeight >= 3 && !lineLike && !hugeShadow;
     if (!keep) continue;
 
-    for (const index of queue) mask[index] = 1;
-    minX = Math.min(minX, componentMinX);
-    minY = Math.min(minY, componentMinY);
-    maxX = Math.max(maxX, componentMaxX);
-    maxY = Math.max(maxY, componentMaxY);
-    keptPixels += count;
+    components.push({
+      pixels: [...queue],
+      count,
+      minX: componentMinX,
+      minY: componentMinY,
+      maxX: componentMaxX,
+      maxY: componentMaxY,
+      width: componentWidth,
+      height: componentHeight,
+      score: count * Math.max(componentWidth, componentHeight)
+    });
   }
 
-  if (keptPixels < minComponentPixels || maxX < minX || maxY < minY) return null;
+  if (!components.length) return null;
+  components.sort((a, b) => b.score - a.score);
+  const selected = selectSignatureCluster(components, width, height);
+  if (!selected.length) return null;
+
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  let keptPixels = 0;
+  for (const component of selected) {
+    component.pixels.forEach((index) => {
+      mask[index] = 1;
+    });
+    minX = Math.min(minX, component.minX);
+    minY = Math.min(minY, component.minY);
+    maxX = Math.max(maxX, component.maxX);
+    maxY = Math.max(maxY, component.maxY);
+    keptPixels += component.count;
+  }
+
+  const boundsWidth = maxX - minX + 1;
+  const boundsHeight = maxY - minY + 1;
+  const boundsArea = boundsWidth * boundsHeight;
+  const density = keptPixels / Math.max(1, boundsArea);
+  const tooSparse = density < 0.0025 && keptPixels < width * height * 0.00009;
+  const tooLarge = boundsWidth > width * 0.5 || boundsHeight > height * 0.38;
+  if (keptPixels < Math.max(38, minComponentPixels * 2) || tooSparse || tooLarge) return null;
   return {
     x: minX,
     y: minY,
     width: maxX - minX + 1,
     height: maxY - minY + 1
   };
+}
+
+function selectSignatureCluster(components, width, height) {
+  const seed = components[0];
+  let bounds = { minX: seed.minX, minY: seed.minY, maxX: seed.maxX, maxY: seed.maxY };
+  const selected = new Set([seed]);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    const expandX = Math.max(36, (bounds.maxX - bounds.minX + 1) * 1.35, width * 0.045);
+    const expandY = Math.max(28, (bounds.maxY - bounds.minY + 1) * 1.55, height * 0.035);
+    const search = {
+      minX: bounds.minX - expandX,
+      minY: bounds.minY - expandY,
+      maxX: bounds.maxX + expandX,
+      maxY: bounds.maxY + expandY
+    };
+
+    for (const component of components) {
+      if (selected.has(component)) continue;
+      const centerX = (component.minX + component.maxX) / 2;
+      const centerY = (component.minY + component.maxY) / 2;
+      const overlaps = component.maxX >= search.minX && component.minX <= search.maxX && component.maxY >= search.minY && component.minY <= search.maxY;
+      const centerInside = centerX >= search.minX && centerX <= search.maxX && centerY >= search.minY && centerY <= search.maxY;
+      if (!overlaps && !centerInside) continue;
+      selected.add(component);
+      bounds = {
+        minX: Math.min(bounds.minX, component.minX),
+        minY: Math.min(bounds.minY, component.minY),
+        maxX: Math.max(bounds.maxX, component.maxX),
+        maxY: Math.max(bounds.maxY, component.maxY)
+      };
+      changed = true;
+    }
+  }
+
+  return Array.from(selected);
+}
+
+function softenSignatureMask({ mask, alphaMap, width, height }) {
+  const copy = alphaMap.slice();
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const index = y * width + x;
+      if (!mask[index]) continue;
+      const strongestNeighbor = Math.max(
+        copy[index],
+        copy[index - 1],
+        copy[index + 1],
+        copy[index - width],
+        copy[index + width]
+      );
+      alphaMap[index] = Math.max(copy[index], Math.round(strongestNeighbor * 0.94));
+    }
+  }
 }
 
 function drawProcessedSignatureOnPad({ canvas, context, processed }) {
