@@ -39,7 +39,7 @@ async function init() {
 
 function registerAppServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker.register("./sw.js?v=20260714-15", { scope: "./" })
+  navigator.serviceWorker.register("./sw.js?v=20260714-16", { scope: "./" })
     .then((registration) => {
       const worker = registration.active || registration.waiting || registration.installing;
       worker?.postMessage?.({ type: "SAD_PRECACHE" });
