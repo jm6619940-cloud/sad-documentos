@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 sql/
+docs-local/
 supabase/.temp/
 supabase/functions/.env
 supabase/functions/.env.*

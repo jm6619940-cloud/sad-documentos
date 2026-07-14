@@ -59,20 +59,14 @@ export function renderProfile({ user, data, refresh }) {
           ${signature?.pin_updated_at ? "<span class='badge Aprobado'>PIN activo</span>" : "<span class='badge Pendiente'>Requiere PIN</span>"}
         </div>
         ${needsSecuritySetup ? "<p class='inline-warning'>Para aprobar documentos debes crear tu firma y un PIN numerico.</p>" : ""}
-        <div class="signature-overview">
-          <div class="signature-current ${signature ? "" : "is-empty"}">
-            <span>${signature ? `Firma actual · version ${escapeHtml(signature.version || 1)}` : "Firma pendiente"}</span>
-            ${signature
-              ? `<img src="${escapeAttr(signature.firma_data_url)}" alt="Firma registrada">`
-              : "<p>Registra una firma dibujada o escaneada para poder firmar documentos internos.</p>"}
-          </div>
-          <div class="signature-cache-card">
-            <strong>Escaner local</strong>
-            <p>OpenCV se guarda en cache al instalar la app. La firma se procesa en este dispositivo y no se envia a terceros.</p>
-          </div>
-        </div>
         <form class="signature-form" data-signature-form>
-          <div class="signature-workspace">
+          <div class="signature-top-grid">
+            <div class="signature-current ${signature ? "" : "is-empty"}">
+              <span>${signature ? `Firma actual · version ${escapeHtml(signature.version || 1)}` : "Firma pendiente"}</span>
+              ${signature
+                ? `<img src="${escapeAttr(signature.firma_data_url)}" alt="Firma registrada">`
+                : "<p>Registra una firma dibujada o escaneada para poder firmar documentos internos.</p>"}
+            </div>
             <div class="signature-method-card">
               <span class="signature-card-label">Metodo de captura</span>
               <div class="signature-mode-switch" role="group" aria-label="Metodo para registrar firma">
@@ -88,66 +82,63 @@ export function renderProfile({ user, data, refresh }) {
               <div class="signature-scan-panel" data-signature-scan-panel hidden>
                 <span>Foto o imagen de tu firma</span>
                 <div class="signature-scan-actions">
-                  <button class="button btn btn-primary" type="button" data-toggle-signature-source>Galeria / foto</button>
-                  <div class="signature-source-menu" data-signature-source-menu hidden>
-                    <label class="button secondary btn btn-outline-secondary">
-                      <span>Elegir de galeria</span>
-                      <input type="file" accept="image/*" data-signature-upload data-signature-upload-source="gallery">
-                    </label>
-                    <label class="button secondary btn btn-outline-secondary">
-                      <span>Tomar foto</span>
-                      <input type="file" accept="image/*" capture="environment" data-signature-upload data-signature-upload-source="camera">
-                    </label>
-                  </div>
+                  <label class="button btn btn-primary">
+                    <span>Galeria / foto</span>
+                    <input type="file" accept="image/*" data-signature-upload>
+                  </label>
                 </div>
-                <p>Usa papel claro y buena luz. El escaner local extrae solo los trazos y descarta sombras, lineas del papel y ruido.</p>
+                <p>Elige una imagen o toma una foto desde las opciones del dispositivo. Luego puedes limpiar puntos o rayas manualmente.</p>
                 <div class="signature-cleanup-actions" data-signature-cleanup-actions hidden>
                   <button class="button secondary btn btn-outline-secondary" type="button" data-toggle-signature-eraser>Activar borrador</button>
                   <button class="button secondary btn btn-outline-secondary" type="button" data-reset-signature-scan>Revertir escaneo</button>
                 </div>
               </div>
             </div>
+          </div>
+          <div class="signature-workspace">
             <label class="field signature-preview-card">
               <span data-signature-pad-label>${signature ? "Dibuja la nueva firma" : "Dibuja tu firma"}</span>
               <canvas class="signature-pad" width="860" height="260" data-signature-pad></canvas>
             </label>
-          </div>
-          <details class="signature-advanced-controls">
-            <summary>Ajustes avanzados</summary>
-            <div class="signature-controls">
-              <label class="signature-control">
-                <span>Grosor del lapiz</span>
-                <div>
-                  <input type="range" min="1.5" max="8" step="0.5" value="2.6" data-signature-stroke>
-                  <output data-signature-stroke-label>2.6 px</output>
+            <div class="signature-side-panel">
+              <details class="signature-advanced-controls">
+                <summary>Ajustes avanzados</summary>
+                <div class="signature-controls">
+                  <label class="signature-control">
+                    <span>Grosor del lapiz</span>
+                    <div>
+                      <input type="range" min="1.5" max="8" step="0.5" value="2.6" data-signature-stroke>
+                      <output data-signature-stroke-label>2.6 px</output>
+                    </div>
+                  </label>
+                  <label class="signature-control">
+                    <span>Tamano del area</span>
+                    <div>
+                      <input type="range" min="180" max="340" step="20" value="260" data-signature-pad-size>
+                      <output data-signature-pad-size-label>260 px</output>
+                    </div>
+                  </label>
+                  <label class="signature-control">
+                    <span>Tamano del borrador</span>
+                    <div>
+                      <input type="range" min="8" max="52" step="2" value="20" data-signature-eraser-size>
+                      <output data-signature-eraser-size-label>20 px</output>
+                    </div>
+                  </label>
                 </div>
-              </label>
-              <label class="signature-control">
-                <span>Tamano del area</span>
-                <div>
-                  <input type="range" min="180" max="340" step="20" value="260" data-signature-pad-size>
-                  <output data-signature-pad-size-label>260 px</output>
-                </div>
-              </label>
-              <label class="signature-control">
-                <span>Tamano del borrador</span>
-                <div>
-                  <input type="range" min="8" max="52" step="2" value="20" data-signature-eraser-size>
-                  <output data-signature-eraser-size-label>20 px</output>
-                </div>
-              </label>
+              </details>
+              <div class="signature-security-row">
+                ${signature?.pin_updated_at ? `
+                  <label class="field"><span>PIN actual</span><input class="input form-control" type="password" name="pin_actual" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
+                ` : `
+                  <label class="field"><span>Crea tu PIN de firma</span><input class="input form-control" type="password" name="pin_nuevo" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
+                `}
+              </div>
+              <div class="toolbar signature-actions">
+                <button class="button secondary btn btn-outline-secondary" type="button" data-clear-signature>Borrar firma</button>
+                <button class="button btn btn-primary" type="submit">${signature ? "Reemplazar firma" : "Guardar firma y PIN"}</button>
+              </div>
             </div>
-          </details>
-          <div class="signature-security-row">
-            ${signature?.pin_updated_at ? `
-              <label class="field"><span>PIN actual</span><input class="input form-control" type="password" name="pin_actual" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
-            ` : `
-              <label class="field"><span>Crea tu PIN de firma</span><input class="input form-control" type="password" name="pin_nuevo" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
-            `}
-          </div>
-          <div class="toolbar">
-            <button class="button secondary btn btn-outline-secondary" type="button" data-clear-signature>Borrar firma</button>
-            <button class="button btn btn-primary" type="submit">${signature ? "Reemplazar firma" : "Guardar firma y PIN"}</button>
           </div>
         </form>
       </section>
@@ -192,12 +183,11 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   const eraserSizeLabel = form.querySelector("[data-signature-eraser-size-label]");
   const scanPanel = form.querySelector("[data-signature-scan-panel]");
   const uploadInputs = Array.from(form.querySelectorAll("[data-signature-upload]"));
-  const sourceButton = form.querySelector("[data-toggle-signature-source]");
-  const sourceMenu = form.querySelector("[data-signature-source-menu]");
   const cleanupActions = form.querySelector("[data-signature-cleanup-actions]");
   const eraserButton = form.querySelector("[data-toggle-signature-eraser]");
   const resetScanButton = form.querySelector("[data-reset-signature-scan]");
   const padLabel = form.querySelector("[data-signature-pad-label]");
+  const advancedControls = form.querySelector(".signature-advanced-controls");
   let drawing = false;
   let hasInk = false;
   let signatureMode = form.elements.signature_mode?.value || "draw";
@@ -368,10 +358,15 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   strokeInput?.addEventListener("input", updateStroke);
   padSizeInput?.addEventListener("input", updatePadSize);
   eraserSizeInput?.addEventListener("input", updateEraserSize);
+  advancedControls?.addEventListener("toggle", () => {
+    if (!advancedControls.open) return;
+    window.setTimeout(() => {
+      advancedControls.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    }, 80);
+  });
   function setSignatureMode(mode) {
     signatureMode = mode;
     scanPanel.hidden = mode !== "scan";
-    if (mode !== "scan" && sourceMenu) sourceMenu.hidden = true;
     setScanEraseMode(false);
     canvas.classList.toggle("is-readonly", mode === "scan");
     if (padLabel) padLabel.textContent = mode === "scan" ? "Vista previa digitalizada" : (signature ? "Dibuja la nueva firma" : "Dibuja tu firma");
@@ -381,10 +376,6 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     input.addEventListener("change", () => {
       setSignatureMode(form.elements.signature_mode.value);
     });
-  });
-  sourceButton?.addEventListener("click", () => {
-    if (!sourceMenu) return;
-    sourceMenu.hidden = !sourceMenu.hidden;
   });
   eraserButton?.addEventListener("click", () => {
     if (!hasInk) {
@@ -427,7 +418,6 @@ function setupSignaturePad({ form, user, signature, refresh }) {
         uploadInputs.forEach((input) => {
           if (input !== uploadInput) input.value = "";
         });
-        if (sourceMenu) sourceMenu.hidden = true;
         toast("Firma escaneada y digitalizada.", "success");
       } catch (error) {
         uploadInput.value = "";
