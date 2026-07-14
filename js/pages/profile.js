@@ -442,13 +442,19 @@ function extractSignatureInk(context, width, height) {
 
 function extractSignatureInkByInkColor(context, width, height) {
   const pixels = context.getImageData(0, 0, width, height).data;
+  const gray = new Uint8ClampedArray(width * height);
   const candidates = new Uint8Array(width * height);
-  const visited = new Uint8Array(width * height);
   const mask = new Uint8Array(width * height);
   const alphaMap = new Uint8ClampedArray(width * height);
+  const radius = Math.max(12, Math.round(Math.min(width, height) * 0.022));
 
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
+  for (let index = 0; index < gray.length; index += 1) {
+    const pixelIndex = index * 4;
+    gray[index] = Math.round((pixels[pixelIndex] * 0.299) + (pixels[pixelIndex + 1] * 0.587) + (pixels[pixelIndex + 2] * 0.114));
+  }
+
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
       const index = y * width + x;
       const pixelIndex = index * 4;
       const alpha = pixels[pixelIndex + 3];
@@ -461,28 +467,80 @@ function extractSignatureInkByInkColor(context, width, height) {
       const chroma = max - min;
       const brightness = (red + green + blue) / 3;
       const saturation = chroma / Math.max(1, max);
+      const localBackground = localGrayAverage(gray, width, height, x, y, radius);
+      const localContrast = localBackground - gray[index];
+      const edge = Math.max(
+        Math.abs(gray[index] - gray[index - 1]),
+        Math.abs(gray[index] - gray[index + 1]),
+        Math.abs(gray[index] - gray[index - width]),
+        Math.abs(gray[index] - gray[index + width])
+      );
       const purpleBlueInk = (
-        brightness < 235
-        && saturation > 0.075
-        && chroma > 16
-        && blue > green + 10
-        && red > green - 4
-        && blue > red - 18
+        brightness < 242
+        && saturation > 0.07
+        && chroma > 14
+        && blue > green + 7
+        && red > green - 8
+        && blue > red - 24
+        && (localContrast > 4 || edge > 6 || saturation > 0.18)
       );
       if (!purpleBlueInk) continue;
-      const confidence = (chroma * 4.6) + ((blue - green) * 2.4) + Math.max(0, red - green) + ((235 - brightness) * 0.8);
+      const confidence = (chroma * 4.2) + ((blue - green) * 2.1) + Math.max(0, red - green) + (Math.max(0, localContrast) * 5.5) + (edge * 2.4);
       const inkAlpha = Math.max(0, Math.min(245, Math.round(confidence)));
-      if (inkAlpha < 92) continue;
+      if (inkAlpha < 72) continue;
       candidates[index] = 1;
       alphaMap[index] = inkAlpha;
     }
   }
 
-  const keptBounds = collectSignatureComponents({ candidates, visited, mask, width, height });
+  const keptBounds = colorSignatureBounds({ candidates, mask, alphaMap, width, height });
   if (!keptBounds) return null;
   softenSignatureMask({ mask, alphaMap, width, height });
   const colorExtraction = { mask, alphaMap, bounds: keptBounds };
   return validateSignatureExtraction(colorExtraction, width, height) ? colorExtraction : null;
+}
+
+function colorSignatureBounds({ candidates, mask, alphaMap, width, height }) {
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  let count = 0;
+
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const index = y * width + x;
+      if (!candidates[index]) continue;
+      const neighbors = (
+        candidates[index - 1]
+        + candidates[index + 1]
+        + candidates[index - width]
+        + candidates[index + width]
+        + candidates[index - width - 1]
+        + candidates[index - width + 1]
+        + candidates[index + width - 1]
+        + candidates[index + width + 1]
+      );
+      if (neighbors < 1) {
+        alphaMap[index] = 0;
+        continue;
+      }
+      mask[index] = 1;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+      count += 1;
+    }
+  }
+
+  if (count < Math.max(35, width * height * 0.000035) || maxX < minX || maxY < minY) return null;
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1
+  };
 }
 
 async function extractSignatureInkWithOpenCv(sourceCanvas) {
@@ -532,9 +590,9 @@ function validateSignatureExtraction(extraction, width, height) {
   const area = bounds.width * bounds.height;
   const density = count / Math.max(1, area);
   const aspect = bounds.width / Math.max(1, bounds.height);
-  const enoughInk = count >= Math.max(70, width * height * 0.00008);
-  const signatureLike = aspect >= 1.28 && bounds.width >= width * 0.055 && bounds.height >= height * 0.018;
-  const notBlob = density < 0.46 && bounds.width <= width * 0.62 && bounds.height <= height * 0.48;
+  const enoughInk = count >= Math.max(45, width * height * 0.000025);
+  const signatureLike = aspect >= 1.05 && bounds.width >= width * 0.035 && bounds.height >= height * 0.01;
+  const notBlob = density < 0.62 && bounds.width <= width * 0.78 && bounds.height <= height * 0.55;
   return enoughInk && signatureLike && notBlob;
 }
 
