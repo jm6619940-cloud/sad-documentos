@@ -4,7 +4,7 @@ import { toast } from "./components/toast.js?v=20260708-12";
 import { dataService } from "./services/dataService.js?v=20260713-5";
 import { renderDashboard } from "./pages/dashboard.js?v=20260710-1";
 import { renderNewRequest } from "./pages/newRequest.js?v=20260713-1";
-import { clearRequestTableState, renderRequestsTable } from "./pages/requestsTable.js?v=20260710-9";
+import { clearRequestTableState, renderRequestsTable } from "./pages/requestsTable.js?v=20260714-15";
 import { renderRequestDetail } from "./pages/requestDetail.js?v=20260714-14";
 import { renderUsers } from "./pages/users.js?v=20260713-1";
 import { renderCatalogs } from "./pages/catalogs.js?v=20260713-1";
@@ -39,7 +39,7 @@ async function init() {
 
 function registerAppServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker.register("./sw.js?v=20260714-14", { scope: "./" })
+  navigator.serviceWorker.register("./sw.js?v=20260714-15", { scope: "./" })
     .then((registration) => {
       const worker = registration.active || registration.waiting || registration.installing;
       worker?.postMessage?.({ type: "SAD_PRECACHE" });

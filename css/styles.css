@@ -724,13 +724,14 @@ td {
 }
 
 .compact-date {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   line-height: 1.25;
 }
 
 .request-list {
   width: 100%;
   min-width: 0;
+  font-size: calc(1rem + 2px);
 }
 
 .mobile-only-cell {
@@ -741,23 +742,23 @@ td {
   display: grid;
   grid-template-columns: var(--request-columns);
   column-gap: clamp(8px, 0.8vw, 14px);
-  align-items: center;
+  align-items: stretch;
   min-width: 0;
 }
 
 .request-grid-wide {
-  --request-columns: minmax(126px, 1.4fr) minmax(78px, 0.72fr) minmax(96px, 0.78fr) minmax(88px, max-content) minmax(62px, 0.52fr) minmax(64px, max-content) minmax(136px, 1.18fr) minmax(112px, 0.88fr) minmax(112px, 0.88fr) 72px;
+  --request-columns: minmax(180px, 1.7fr) minmax(112px, 0.78fr) minmax(132px, 0.9fr) minmax(112px, max-content) minmax(96px, 0.7fr) minmax(92px, max-content) minmax(190px, 1.32fr) minmax(150px, 0.95fr) minmax(190px, 1.15fr);
 }
 
 .request-grid-own {
-  --request-columns: minmax(150px, 1.8fr) minmax(88px, max-content) minmax(62px, 0.62fr) minmax(64px, max-content) minmax(150px, 1.28fr) minmax(118px, 0.9fr) minmax(118px, 0.9fr) 72px;
+  --request-columns: minmax(220px, 2fr) minmax(112px, max-content) minmax(104px, 0.75fr) minmax(92px, max-content) minmax(190px, 1.35fr) minmax(150px, 0.95fr) minmax(190px, 1.15fr);
 }
 
 .request-header {
   padding: 8px 0 10px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.66rem;
+  font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -767,6 +768,7 @@ td {
   min-height: 52px;
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
+  align-items: center;
 }
 
 .request-row:hover {
@@ -788,6 +790,20 @@ td {
   white-space: nowrap;
 }
 
+.request-cell,
+.request-header span {
+  display: flex;
+  align-items: center;
+}
+
+.request-cell {
+  min-height: 36px;
+}
+
+.request-cell.mobile-only-cell {
+  display: none;
+}
+
 .request-list .cell-ellipsis,
 .request-list .approval-name {
   display: block;
@@ -797,6 +813,9 @@ td {
 }
 
 .request-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   overflow: visible;
   justify-self: end;
 }
@@ -875,7 +894,9 @@ td {
   align-items: center;
   gap: 4px;
   min-width: 0;
-  flex-wrap: wrap;
+  max-width: 100%;
+  overflow: hidden;
+  flex-wrap: nowrap;
 }
 
 .request-cell-approvers {
@@ -1776,7 +1797,8 @@ tr:hover td {
 
 .signature-current {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  align-content: start;
   min-height: 100%;
   padding: 12px;
   border: 1px solid var(--line);
@@ -1790,7 +1812,7 @@ tr:hover td {
 }
 
 .signature-current img {
-  width: min(520px, 100%);
+  width: min(480px, 100%);
   max-height: 170px;
   object-fit: contain;
   border: 1px solid var(--line);
@@ -1826,6 +1848,10 @@ tr:hover td {
   background: var(--surface);
 }
 
+.signature-method-card {
+  align-content: start;
+}
+
 .signature-card-label,
 .signature-preview-card > span {
   color: var(--muted);
@@ -1842,13 +1868,14 @@ tr:hover td {
   display: grid;
   grid-template-columns: minmax(420px, 1.2fr) minmax(300px, 0.8fr);
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .signature-side-panel {
   display: grid;
   gap: 12px;
   align-content: start;
+  align-self: start;
 }
 
 .signature-mode-switch {
@@ -2328,11 +2355,11 @@ tr:hover td {
   }
 
   .request-grid-wide {
-    --request-columns: minmax(118px, 1.22fr) minmax(76px, 0.68fr) minmax(92px, 0.72fr) minmax(84px, max-content) minmax(58px, 0.48fr) minmax(62px, max-content) minmax(118px, 1fr) minmax(100px, 0.75fr) minmax(100px, 0.75fr) 66px;
+    --request-columns: minmax(160px, 1.55fr) minmax(100px, 0.72fr) minmax(112px, 0.78fr) minmax(104px, max-content) minmax(86px, 0.62fr) minmax(86px, max-content) minmax(160px, 1.08fr) minmax(132px, 0.88fr) minmax(162px, 1fr);
   }
 
   .request-grid-own {
-    --request-columns: minmax(138px, 1.5fr) minmax(84px, max-content) minmax(58px, 0.5fr) minmax(62px, max-content) minmax(124px, 1fr) minmax(104px, 0.75fr) minmax(104px, 0.75fr) 66px;
+    --request-columns: minmax(190px, 1.7fr) minmax(104px, max-content) minmax(92px, 0.62fr) minmax(86px, max-content) minmax(162px, 1.1fr) minmax(132px, 0.88fr) minmax(162px, 1fr);
   }
 
   .request-grid {
@@ -2340,13 +2367,13 @@ tr:hover td {
   }
 
   .request-header {
-    font-size: 0.62rem;
+    font-size: 0.7rem;
   }
 
   .request-cell,
   .compact-date,
   .approval-chip {
-    font-size: 0.74rem;
+    font-size: 0.84rem;
   }
 }
 

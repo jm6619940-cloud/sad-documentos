@@ -82,7 +82,6 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
           <span role="columnheader">Aprobadores</span>
           <span role="columnheader">Fecha</span>
           <span role="columnheader">Ultima actualizacion</span>
-          <span role="columnheader"></span>
         </div>
         <div class="request-list-body">
           ${visibleRows.map((item) => `
@@ -95,18 +94,12 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
               <div class="request-cell request-cell-approvers" data-label="Aprobadores" role="cell">${approverSummary(data, item.id)}</div>
               <div class="request-cell request-cell-date" data-label="Fecha" data-mobile-essential role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.created_at)}</span></div>
               <div class="request-cell request-cell-date" data-label="Actualizacion" role="cell"><span class="cell-ellipsis compact-date">${formatDateTimeCompact(item.updated_at)}</span></div>
-              <div class="request-cell request-actions" data-label="" role="cell"><button class="button secondary btn btn-outline-secondary btn-sm" data-detail="${escapeAttr(item.id)}">${icon("eye")} Ver</button></div>
             </div>
           `).join("") || `<div class="empty-state">No hay resultados.</div>`}
         </div>
       </div>
       ${paginationMarkup(rows.length, visibleRows.length, tableState.currentPage, totalPages, pageSize)}
     `;
-    page.querySelectorAll("[data-detail]").forEach((button) => {
-      button.addEventListener("click", () => {
-        openDetail(button.dataset.detail);
-      });
-    });
     page.querySelectorAll("[data-row-detail]").forEach((row) => {
       row.addEventListener("click", (event) => {
         if (event.target.closest("button, a, input, select, textarea, label")) return;
