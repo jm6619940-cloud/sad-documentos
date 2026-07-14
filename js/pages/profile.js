@@ -102,7 +102,7 @@ export function renderProfile({ user, data, refresh }) {
                 </div>
                 <p>Usa papel claro y buena luz. El escaner local extrae solo los trazos y descarta sombras, lineas del papel y ruido.</p>
                 <div class="signature-cleanup-actions" data-signature-cleanup-actions hidden>
-                  <button class="button secondary btn btn-outline-secondary" type="button" data-toggle-signature-eraser>Limpiar puntos/rayas</button>
+                  <button class="button secondary btn btn-outline-secondary" type="button" data-toggle-signature-eraser>Activar borrador</button>
                   <button class="button secondary btn btn-outline-secondary" type="button" data-reset-signature-scan>Revertir escaneo</button>
                 </div>
               </div>
@@ -146,7 +146,7 @@ export function renderProfile({ user, data, refresh }) {
             `}
           </div>
           <div class="toolbar">
-            <button class="button secondary btn btn-outline-secondary" type="button" data-clear-signature>Limpiar</button>
+            <button class="button secondary btn btn-outline-secondary" type="button" data-clear-signature>Borrar firma</button>
             <button class="button btn btn-primary" type="submit">${signature ? "Reemplazar firma" : "Guardar firma y PIN"}</button>
           </div>
         </form>
@@ -215,16 +215,37 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     if (cleanupActions) cleanupActions.hidden = true;
   }
 
-  function resizeCanvas() {
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.max(320, Math.floor(rect.width * ratio));
-    canvas.height = Math.max(150, Math.floor(rect.height * ratio));
+  function applyDrawingSettings(ratio = Math.max(window.devicePixelRatio || 1, 1)) {
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     context.lineWidth = strokeWidth;
     context.lineCap = "round";
     context.lineJoin = "round";
     context.strokeStyle = "#1d4ed8";
+  }
+
+  function snapshotCanvas() {
+    if (!hasInk || !canvas.width || !canvas.height) return null;
+    const snapshot = document.createElement("canvas");
+    snapshot.width = canvas.width;
+    snapshot.height = canvas.height;
+    snapshot.getContext("2d").drawImage(canvas, 0, 0);
+    return snapshot;
+  }
+
+  function resizeCanvas({ preserve = false } = {}) {
+    const snapshot = preserve ? snapshotCanvas() : null;
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(320, Math.floor(rect.width * ratio));
+    canvas.height = Math.max(150, Math.floor(rect.height * ratio));
+    if (snapshot) {
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(snapshot, 0, 0, canvas.width, canvas.height);
+      context.restore();
+    }
+    applyDrawingSettings(ratio);
   }
 
   function updateStroke() {
@@ -238,9 +259,11 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     if (padSizeLabel) padSizeLabel.textContent = `${nextHeight} px`;
     canvas.style.height = `${nextHeight}px`;
     const hadInk = hasInk;
-    resizeCanvas();
-    hasInk = false;
-    if (hadInk) toast("El area cambio de tamano. Dibuja la firma nuevamente.", "info");
+    resizeCanvas({ preserve: hadInk });
+    hasInk = hadInk;
+    if (hadInk) {
+      toast("El area cambio de tamano y se conservo la firma.", "info");
+    }
   }
 
   function updateEraserSize() {
@@ -289,7 +312,7 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     canvas.classList.toggle("is-erasing", scanEraseMode);
     if (eraserButton) {
       eraserButton.classList.toggle("is-active", scanEraseMode);
-      eraserButton.textContent = scanEraseMode ? "Terminar limpieza" : "Limpiar puntos/rayas";
+      eraserButton.textContent = scanEraseMode ? "Terminar limpieza" : "Activar borrador";
     }
     if (padLabel) {
       padLabel.textContent = scanEraseMode ? "Borra manualmente puntos o rayas" : (signatureMode === "scan" ? "Vista previa digitalizada" : (signature ? "Dibuja la nueva firma" : "Dibuja tu firma"));
@@ -474,7 +497,8 @@ async function processScannedSignature(file) {
       || (() => {
         const fallbackExtraction = extractSignatureInk(sourceContext, width, height);
         return fallbackExtraction && validateSignatureExtraction(fallbackExtraction, width, height) ? fallbackExtraction : null;
-      })();
+      })()
+      || extractSignatureInkUltraLoose(sourceContext, width, height);
     if (!extraction) throw new Error("No detectamos la firma. Usa una foto con fondo claro y tinta visible.");
     const { mask, alphaMap, bounds } = extraction;
 
@@ -677,6 +701,38 @@ function extractSignatureInkLoose(context, width, height) {
   softenSignatureMask({ mask, alphaMap, width, height });
   const extraction = { mask, alphaMap, bounds: keptBounds };
   return validateSignatureExtraction(extraction, width, height) ? extraction : null;
+}
+
+function extractSignatureInkUltraLoose(context, width, height) {
+  const pixels = context.getImageData(0, 0, width, height).data;
+  const candidates = new Uint8Array(width * height);
+  const mask = new Uint8Array(width * height);
+  const alphaMap = new Uint8ClampedArray(width * height);
+
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const index = y * width + x;
+      const pixelIndex = index * 4;
+      if (pixels[pixelIndex + 3] <= 10) continue;
+      const red = pixels[pixelIndex];
+      const green = pixels[pixelIndex + 1];
+      const blue = pixels[pixelIndex + 2];
+      const max = Math.max(red, green, blue);
+      const min = Math.min(red, green, blue);
+      const chroma = max - min;
+      const brightness = (red + green + blue) / 3;
+      const blueOrPurple = chroma > 5 && blue >= green - 2 && blue >= red - 46;
+      const darkFineStroke = brightness < 185 && chroma > 3;
+      if (!blueOrPurple && !darkFineStroke) continue;
+      candidates[index] = 1;
+      alphaMap[index] = Math.max(48, Math.min(225, Math.round((chroma * 5.2) + ((245 - brightness) * 1.1))));
+    }
+  }
+
+  const bounds = colorSignatureBounds({ candidates, mask, alphaMap, width, height });
+  if (!bounds) return null;
+  softenSignatureMask({ mask, alphaMap, width, height });
+  return { mask, alphaMap, bounds };
 }
 
 function colorSignatureBounds({ candidates, mask, alphaMap, width, height }) {
