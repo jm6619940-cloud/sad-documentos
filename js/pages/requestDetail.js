@@ -11,7 +11,7 @@ import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v
 const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 const PDF_LIB_URL = "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm";
-const SIGNATURE_INK_COLOR = "#1d4ed8";
+const SIGNATURE_INK_COLOR = "#130b49";
 const SIGNATURE_DEFAULT_SCALE = 30;
 const signatureTintCache = new Map();
 let pdfJsPromise;
