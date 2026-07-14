@@ -519,7 +519,7 @@ async function processScannedSignature(file) {
       const sourceY = cropY + Math.floor(pixelOffset / cropWidth);
       const sourceIndex = sourceY * width + sourceX;
       const inkAlpha = mask[sourceIndex] && alpha > 10 ? alphaMap[sourceIndex] : 0;
-      const color = preserveScannedInkTone(pixels.data[index], pixels.data[index + 1], pixels.data[index + 2]);
+      const color = realisticBluePenTone(pixels.data[index], pixels.data[index + 1], pixels.data[index + 2], inkAlpha);
       output.data[index] = color.red;
       output.data[index + 1] = color.green;
       output.data[index + 2] = color.blue;
@@ -536,14 +536,29 @@ async function processScannedSignature(file) {
   }
 }
 
-function preserveScannedInkTone(red, green, blue) {
+function realisticBluePenTone(red, green, blue, inkAlpha) {
   const brightness = (red + green + blue) / 3;
-  const lift = brightness > 205 ? 0.82 : brightness > 165 ? 0.92 : 1;
+  const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
+  const pressure = clampNumber(
+    ((245 - brightness) / 150 * 0.42)
+    + (chroma / 95 * 0.28)
+    + (inkAlpha / 245 * 0.5),
+    0,
+    1
+  );
+  const lightInk = { red: 48, green: 96, blue: 206 };
+  const darkInk = { red: 16, green: 55, blue: 164 };
+  const purpleShift = clampNumber((red - green) / 120, 0, 0.18);
+  const highlight = brightness > 214 ? 10 : 0;
   return {
-    red: Math.max(0, Math.min(255, Math.round(red * lift))),
-    green: Math.max(0, Math.min(255, Math.round(green * lift))),
-    blue: Math.max(0, Math.min(255, Math.round(blue * lift)))
+    red: Math.round((lightInk.red * (1 - pressure)) + (darkInk.red * pressure) + (purpleShift * 22) + highlight),
+    green: Math.round((lightInk.green * (1 - pressure)) + (darkInk.green * pressure) + highlight),
+    blue: Math.round((lightInk.blue * (1 - pressure)) + (darkInk.blue * pressure) + (purpleShift * 10) + highlight)
   };
+}
+
+function clampNumber(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function extractSignatureInk(context, width, height) {
