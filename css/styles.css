@@ -1915,6 +1915,28 @@ tr:hover td {
   font-weight: 750;
 }
 
+.signature-cleanup-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  animation: signatureControlsReveal 0.18s ease;
+}
+
+.signature-cleanup-actions[hidden] {
+  display: none;
+}
+
+.signature-cleanup-actions .button {
+  min-height: 42px;
+}
+
+.signature-cleanup-actions .button.is-active {
+  color: #fff;
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.22);
+}
+
 .signature-scan-actions {
   display: grid;
   grid-template-columns: 1fr;
@@ -2061,6 +2083,14 @@ tr:hover td {
 .signature-pad.is-readonly {
   cursor: default;
   touch-action: auto;
+}
+
+.signature-pad.is-erasing {
+  cursor: crosshair;
+  touch-action: none;
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
 }
 
 .signature-security-row {
@@ -2490,6 +2520,10 @@ tr:hover td {
   }
 
   .signature-mode-switch {
+    grid-template-columns: 1fr;
+  }
+
+  .signature-cleanup-actions {
     grid-template-columns: 1fr;
   }
 

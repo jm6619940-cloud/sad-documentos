@@ -101,6 +101,10 @@ export function renderProfile({ user, data, refresh }) {
                   </div>
                 </div>
                 <p>Usa papel claro y buena luz. El escaner local extrae solo los trazos y descarta sombras, lineas del papel y ruido.</p>
+                <div class="signature-cleanup-actions" data-signature-cleanup-actions hidden>
+                  <button class="button secondary btn btn-outline-secondary" type="button" data-toggle-signature-eraser>Limpiar puntos/rayas</button>
+                  <button class="button secondary btn btn-outline-secondary" type="button" data-reset-signature-scan>Revertir escaneo</button>
+                </div>
               </div>
             </div>
             <label class="field signature-preview-card">
@@ -123,6 +127,13 @@ export function renderProfile({ user, data, refresh }) {
                 <div>
                   <input type="range" min="180" max="340" step="20" value="260" data-signature-pad-size>
                   <output data-signature-pad-size-label>260 px</output>
+                </div>
+              </label>
+              <label class="signature-control">
+                <span>Tamano del borrador</span>
+                <div>
+                  <input type="range" min="8" max="52" step="2" value="20" data-signature-eraser-size>
+                  <output data-signature-eraser-size-label>20 px</output>
                 </div>
               </label>
             </div>
@@ -177,19 +188,31 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   const strokeLabel = form.querySelector("[data-signature-stroke-label]");
   const padSizeInput = form.querySelector("[data-signature-pad-size]");
   const padSizeLabel = form.querySelector("[data-signature-pad-size-label]");
+  const eraserSizeInput = form.querySelector("[data-signature-eraser-size]");
+  const eraserSizeLabel = form.querySelector("[data-signature-eraser-size-label]");
   const scanPanel = form.querySelector("[data-signature-scan-panel]");
   const uploadInputs = Array.from(form.querySelectorAll("[data-signature-upload]"));
   const sourceButton = form.querySelector("[data-toggle-signature-source]");
   const sourceMenu = form.querySelector("[data-signature-source-menu]");
+  const cleanupActions = form.querySelector("[data-signature-cleanup-actions]");
+  const eraserButton = form.querySelector("[data-toggle-signature-eraser]");
+  const resetScanButton = form.querySelector("[data-reset-signature-scan]");
   const padLabel = form.querySelector("[data-signature-pad-label]");
   let drawing = false;
   let hasInk = false;
   let signatureMode = form.elements.signature_mode?.value || "draw";
   let strokeWidth = Number(strokeInput?.value || 2.6);
+  let eraserSize = Number(eraserSizeInput?.value || 20);
+  let scanEraseMode = false;
+  let scanSnapshot = null;
+  let eraserPoint = null;
 
   function clearPad() {
     context.clearRect(0, 0, canvas.width, canvas.height);
     hasInk = false;
+    scanSnapshot = null;
+    setScanEraseMode(false);
+    if (cleanupActions) cleanupActions.hidden = true;
   }
 
   function resizeCanvas() {
@@ -220,6 +243,11 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     if (hadInk) toast("El area cambio de tamano. Dibuja la firma nuevamente.", "info");
   }
 
+  function updateEraserSize() {
+    eraserSize = Number(eraserSizeInput?.value || 20);
+    if (eraserSizeLabel) eraserSizeLabel.textContent = `${Math.round(eraserSize)} px`;
+  }
+
   function point(event) {
     const rect = canvas.getBoundingClientRect();
     return {
@@ -228,7 +256,56 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     };
   }
 
+  function eraseAt(position) {
+    context.save();
+    context.globalCompositeOperation = "destination-out";
+    context.beginPath();
+    context.arc(position.x, position.y, eraserSize / 2, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  }
+
+  function eraseLine(to) {
+    if (!eraserPoint) {
+      eraseAt(to);
+      eraserPoint = to;
+      return;
+    }
+    context.save();
+    context.globalCompositeOperation = "destination-out";
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.lineWidth = eraserSize;
+    context.beginPath();
+    context.moveTo(eraserPoint.x, eraserPoint.y);
+    context.lineTo(to.x, to.y);
+    context.stroke();
+    context.restore();
+    eraserPoint = to;
+  }
+
+  function setScanEraseMode(enabled) {
+    scanEraseMode = Boolean(enabled && signatureMode === "scan" && hasInk);
+    canvas.classList.toggle("is-erasing", scanEraseMode);
+    if (eraserButton) {
+      eraserButton.classList.toggle("is-active", scanEraseMode);
+      eraserButton.textContent = scanEraseMode ? "Terminar limpieza" : "Limpiar puntos/rayas";
+    }
+    if (padLabel) {
+      padLabel.textContent = scanEraseMode ? "Borra manualmente puntos o rayas" : (signatureMode === "scan" ? "Vista previa digitalizada" : (signature ? "Dibuja la nueva firma" : "Dibuja tu firma"));
+    }
+  }
+
   canvas.addEventListener("pointerdown", (event) => {
+    if (signatureMode === "scan") {
+      if (!scanEraseMode) return;
+      event.preventDefault();
+      drawing = true;
+      canvas.setPointerCapture(event.pointerId);
+      eraserPoint = point(event);
+      eraseAt(eraserPoint);
+      return;
+    }
     if (signatureMode !== "draw") return;
     event.preventDefault();
     drawing = true;
@@ -243,6 +320,10 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     if (!drawing) return;
     event.preventDefault();
     const next = point(event);
+    if (signatureMode === "scan" && scanEraseMode) {
+      eraseLine(next);
+      return;
+    }
     context.lineTo(next.x, next.y);
     context.stroke();
   });
@@ -250,6 +331,7 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   ["pointerup", "pointercancel", "pointerleave"].forEach((type) => {
     canvas.addEventListener(type, () => {
       drawing = false;
+      eraserPoint = null;
     });
   });
 
@@ -262,10 +344,12 @@ function setupSignaturePad({ form, user, signature, refresh }) {
 
   strokeInput?.addEventListener("input", updateStroke);
   padSizeInput?.addEventListener("input", updatePadSize);
+  eraserSizeInput?.addEventListener("input", updateEraserSize);
   function setSignatureMode(mode) {
     signatureMode = mode;
     scanPanel.hidden = mode !== "scan";
     if (mode !== "scan" && sourceMenu) sourceMenu.hidden = true;
+    setScanEraseMode(false);
     canvas.classList.toggle("is-readonly", mode === "scan");
     if (padLabel) padLabel.textContent = mode === "scan" ? "Vista previa digitalizada" : (signature ? "Dibuja la nueva firma" : "Dibuja tu firma");
   }
@@ -278,6 +362,28 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   sourceButton?.addEventListener("click", () => {
     if (!sourceMenu) return;
     sourceMenu.hidden = !sourceMenu.hidden;
+  });
+  eraserButton?.addEventListener("click", () => {
+    if (!hasInk) {
+      toast("Primero escanea una firma para poder limpiarla.", "warning");
+      return;
+    }
+    setScanEraseMode(!scanEraseMode);
+  });
+  resetScanButton?.addEventListener("click", () => {
+    if (!scanSnapshot) {
+      toast("No hay un escaneo previo para revertir.", "info");
+      return;
+    }
+    const image = new Image();
+    image.onload = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.clientWidth, canvas.clientHeight);
+      hasInk = true;
+      setScanEraseMode(false);
+      toast("Escaneo restaurado.", "success");
+    };
+    image.src = scanSnapshot;
   });
   uploadInputs.forEach((uploadInput) => {
     uploadInput.addEventListener("change", async () => {
@@ -292,6 +398,9 @@ function setupSignaturePad({ form, user, signature, refresh }) {
         const processed = await processScannedSignature(file);
         drawProcessedSignatureOnPad({ canvas, context, processed });
         hasInk = true;
+        scanSnapshot = canvas.toDataURL("image/png");
+        if (cleanupActions) cleanupActions.hidden = false;
+        setScanEraseMode(false);
         uploadInputs.forEach((input) => {
           if (input !== uploadInput) input.value = "";
         });
@@ -338,6 +447,7 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   requestAnimationFrame(() => {
     updateStroke();
     updatePadSize();
+    updateEraserSize();
     setSignatureMode(signatureMode);
   });
 }
@@ -359,6 +469,7 @@ async function processScannedSignature(file) {
     sourceContext.drawImage(image, 0, 0, width, height);
 
     const extraction = extractSignatureInkByInkColor(sourceContext, width, height)
+      || extractSignatureInkLoose(sourceContext, width, height)
       || await extractSignatureInkWithOpenCv(sourceCanvas).catch(() => null)
       || (() => {
         const fallbackExtraction = extractSignatureInk(sourceContext, width, height);
@@ -513,6 +624,61 @@ function extractSignatureInkByInkColor(context, width, height) {
   return validateSignatureExtraction(colorExtraction, width, height) ? colorExtraction : null;
 }
 
+function extractSignatureInkLoose(context, width, height) {
+  const pixels = context.getImageData(0, 0, width, height).data;
+  const gray = new Uint8ClampedArray(width * height);
+  const candidates = new Uint8Array(width * height);
+  const mask = new Uint8Array(width * height);
+  const alphaMap = new Uint8ClampedArray(width * height);
+  const radius = Math.max(10, Math.round(Math.min(width, height) * 0.018));
+
+  for (let index = 0; index < gray.length; index += 1) {
+    const pixelIndex = index * 4;
+    gray[index] = Math.round((pixels[pixelIndex] * 0.299) + (pixels[pixelIndex + 1] * 0.587) + (pixels[pixelIndex + 2] * 0.114));
+  }
+
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const index = y * width + x;
+      const pixelIndex = index * 4;
+      if (pixels[pixelIndex + 3] <= 10) continue;
+      const red = pixels[pixelIndex];
+      const green = pixels[pixelIndex + 1];
+      const blue = pixels[pixelIndex + 2];
+      const brightness = gray[index];
+      const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
+      const localBackground = localGrayAverage(gray, width, height, x, y, radius);
+      const localContrast = localBackground - brightness;
+      const edge = Math.max(
+        Math.abs(brightness - gray[index - 1]),
+        Math.abs(brightness - gray[index + 1]),
+        Math.abs(brightness - gray[index - width]),
+        Math.abs(brightness - gray[index + width])
+      );
+      const coloredInk = chroma > 7 && (blue > green || red > green + 2);
+      const darkInk = brightness < 222 && localContrast > 5 && edge > 4;
+      const faintInk = brightness < 242 && localContrast > 2.2 && edge > 2.8 && chroma > 4;
+      if (!coloredInk && !darkInk && !faintInk) continue;
+      const confidence = Math.max(
+        chroma * 4.2,
+        localContrast * 8.5,
+        edge * 6.5,
+        (244 - brightness) * 1.15
+      );
+      const inkAlpha = Math.max(0, Math.min(245, Math.round(confidence)));
+      if (inkAlpha < 30) continue;
+      candidates[index] = 1;
+      alphaMap[index] = inkAlpha;
+    }
+  }
+
+  const keptBounds = colorSignatureBounds({ candidates, mask, alphaMap, width, height });
+  if (!keptBounds) return null;
+  softenSignatureMask({ mask, alphaMap, width, height });
+  const extraction = { mask, alphaMap, bounds: keptBounds };
+  return validateSignatureExtraction(extraction, width, height) ? extraction : null;
+}
+
 function colorSignatureBounds({ candidates, mask, alphaMap, width, height }) {
   let minX = width;
   let minY = height;
@@ -547,7 +713,7 @@ function colorSignatureBounds({ candidates, mask, alphaMap, width, height }) {
     }
   }
 
-  if (count < Math.max(20, width * height * 0.000018) || maxX < minX || maxY < minY) return null;
+  if (count < Math.max(14, width * height * 0.00001) || maxX < minX || maxY < minY) return null;
   return {
     x: minX,
     y: minY,
@@ -603,9 +769,9 @@ function validateSignatureExtraction(extraction, width, height) {
   const area = bounds.width * bounds.height;
   const density = count / Math.max(1, area);
   const aspect = bounds.width / Math.max(1, bounds.height);
-  const enoughInk = count >= Math.max(28, width * height * 0.000016);
-  const signatureLike = aspect >= 0.95 && bounds.width >= width * 0.025 && bounds.height >= height * 0.007;
-  const notBlob = density < 0.68 && bounds.width <= width * 0.82 && bounds.height <= height * 0.58;
+  const enoughInk = count >= Math.max(16, width * height * 0.000009);
+  const signatureLike = aspect >= 0.72 && bounds.width >= width * 0.018 && bounds.height >= height * 0.004;
+  const notBlob = density < 0.74 && bounds.width <= width * 0.88 && bounds.height <= height * 0.68;
   return enoughInk && signatureLike && notBlob;
 }
 
