@@ -1917,11 +1917,28 @@ tr:hover td {
 
 .signature-scan-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 
-.signature-scan-actions label {
+.signature-scan-actions button {
+  margin: 0;
+  min-height: 46px;
+  width: 100%;
+}
+
+.signature-source-menu {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  animation: signatureControlsReveal 0.18s ease;
+}
+
+.signature-source-menu[hidden] {
+  display: none;
+}
+
+.signature-source-menu label {
   margin: 0;
   min-height: 46px;
 }
@@ -1934,10 +1951,66 @@ tr:hover td {
   pointer-events: none;
 }
 
+.signature-advanced-controls {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.signature-advanced-controls summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-weight: 900;
+  cursor: pointer;
+  list-style: none;
+}
+
+.signature-advanced-controls summary::-webkit-details-marker {
+  display: none;
+}
+
+.signature-advanced-controls summary::after {
+  content: "+";
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-soft);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.signature-advanced-controls[open] summary::after {
+  content: "-";
+  color: var(--primary);
+  transform: rotate(180deg);
+}
+
 .signature-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  padding: 0 12px 12px;
+  animation: signatureControlsReveal 0.22s ease;
+}
+
+@keyframes signatureControlsReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .signature-control {
@@ -2420,7 +2493,7 @@ tr:hover td {
     grid-template-columns: 1fr;
   }
 
-  .signature-scan-actions {
+  .signature-source-menu {
     grid-template-columns: 1fr;
   }
 

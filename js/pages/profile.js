@@ -88,14 +88,17 @@ export function renderProfile({ user, data, refresh }) {
               <div class="signature-scan-panel" data-signature-scan-panel hidden>
                 <span>Foto o imagen de tu firma</span>
                 <div class="signature-scan-actions">
-                  <label class="button secondary btn btn-outline-secondary">
-                    <span>Elegir de galeria</span>
-                    <input type="file" accept="image/*" data-signature-upload data-signature-upload-source="gallery">
-                  </label>
-                  <label class="button btn btn-primary">
-                    <span>Tomar foto</span>
-                    <input type="file" accept="image/*" capture="environment" data-signature-upload data-signature-upload-source="camera">
-                  </label>
+                  <button class="button btn btn-primary" type="button" data-toggle-signature-source>Galeria / foto</button>
+                  <div class="signature-source-menu" data-signature-source-menu hidden>
+                    <label class="button secondary btn btn-outline-secondary">
+                      <span>Elegir de galeria</span>
+                      <input type="file" accept="image/*" data-signature-upload data-signature-upload-source="gallery">
+                    </label>
+                    <label class="button secondary btn btn-outline-secondary">
+                      <span>Tomar foto</span>
+                      <input type="file" accept="image/*" capture="environment" data-signature-upload data-signature-upload-source="camera">
+                    </label>
+                  </div>
                 </div>
                 <p>Usa papel claro y buena luz. El escaner local extrae solo los trazos y descarta sombras, lineas del papel y ruido.</p>
               </div>
@@ -105,22 +108,25 @@ export function renderProfile({ user, data, refresh }) {
               <canvas class="signature-pad" width="860" height="260" data-signature-pad></canvas>
             </label>
           </div>
-          <div class="signature-controls">
-            <label class="signature-control">
-              <span>Grosor del lapiz</span>
-              <div>
-                <input type="range" min="1.5" max="8" step="0.5" value="2.6" data-signature-stroke>
-                <output data-signature-stroke-label>2.6 px</output>
-              </div>
-            </label>
-            <label class="signature-control">
-              <span>Tamano del area</span>
-              <div>
-                <input type="range" min="180" max="340" step="20" value="260" data-signature-pad-size>
-                <output data-signature-pad-size-label>260 px</output>
-              </div>
-            </label>
-          </div>
+          <details class="signature-advanced-controls">
+            <summary>Ajustes avanzados</summary>
+            <div class="signature-controls">
+              <label class="signature-control">
+                <span>Grosor del lapiz</span>
+                <div>
+                  <input type="range" min="1.5" max="8" step="0.5" value="2.6" data-signature-stroke>
+                  <output data-signature-stroke-label>2.6 px</output>
+                </div>
+              </label>
+              <label class="signature-control">
+                <span>Tamano del area</span>
+                <div>
+                  <input type="range" min="180" max="340" step="20" value="260" data-signature-pad-size>
+                  <output data-signature-pad-size-label>260 px</output>
+                </div>
+              </label>
+            </div>
+          </details>
           <div class="signature-security-row">
             ${signature?.pin_updated_at ? `
               <label class="field"><span>PIN actual</span><input class="input form-control" type="password" name="pin_actual" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
@@ -173,6 +179,8 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   const padSizeLabel = form.querySelector("[data-signature-pad-size-label]");
   const scanPanel = form.querySelector("[data-signature-scan-panel]");
   const uploadInputs = Array.from(form.querySelectorAll("[data-signature-upload]"));
+  const sourceButton = form.querySelector("[data-toggle-signature-source]");
+  const sourceMenu = form.querySelector("[data-signature-source-menu]");
   const padLabel = form.querySelector("[data-signature-pad-label]");
   let drawing = false;
   let hasInk = false;
@@ -257,6 +265,7 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   function setSignatureMode(mode) {
     signatureMode = mode;
     scanPanel.hidden = mode !== "scan";
+    if (mode !== "scan" && sourceMenu) sourceMenu.hidden = true;
     canvas.classList.toggle("is-readonly", mode === "scan");
     if (padLabel) padLabel.textContent = mode === "scan" ? "Vista previa digitalizada" : (signature ? "Dibuja la nueva firma" : "Dibuja tu firma");
   }
@@ -265,6 +274,10 @@ function setupSignaturePad({ form, user, signature, refresh }) {
     input.addEventListener("change", () => {
       setSignatureMode(form.elements.signature_mode.value);
     });
+  });
+  sourceButton?.addEventListener("click", () => {
+    if (!sourceMenu) return;
+    sourceMenu.hidden = !sourceMenu.hidden;
   });
   uploadInputs.forEach((uploadInput) => {
     uploadInput.addEventListener("change", async () => {
@@ -282,9 +295,9 @@ function setupSignaturePad({ form, user, signature, refresh }) {
         uploadInputs.forEach((input) => {
           if (input !== uploadInput) input.value = "";
         });
+        if (sourceMenu) sourceMenu.hidden = true;
         toast("Firma escaneada y digitalizada.", "success");
       } catch (error) {
-        clearPad();
         uploadInput.value = "";
         toast(error.message || "No fue posible digitalizar la firma.", "error");
       }
@@ -476,18 +489,18 @@ function extractSignatureInkByInkColor(context, width, height) {
         Math.abs(gray[index] - gray[index + width])
       );
       const purpleBlueInk = (
-        brightness < 242
-        && saturation > 0.07
-        && chroma > 14
-        && blue > green + 7
-        && red > green - 8
-        && blue > red - 24
-        && (localContrast > 4 || edge > 6 || saturation > 0.18)
+        brightness < 252
+        && saturation > 0.045
+        && chroma > 9
+        && blue > green + 2
+        && red > green - 18
+        && blue > red - 40
+        && (localContrast > 1.5 || edge > 3 || saturation > 0.12)
       );
       if (!purpleBlueInk) continue;
-      const confidence = (chroma * 4.2) + ((blue - green) * 2.1) + Math.max(0, red - green) + (Math.max(0, localContrast) * 5.5) + (edge * 2.4);
+      const confidence = (chroma * 4.8) + ((blue - green) * 2.4) + Math.max(0, red - green) + (Math.max(0, localContrast) * 6.2) + (edge * 3.1);
       const inkAlpha = Math.max(0, Math.min(245, Math.round(confidence)));
-      if (inkAlpha < 72) continue;
+      if (inkAlpha < 38) continue;
       candidates[index] = 1;
       alphaMap[index] = inkAlpha;
     }
@@ -534,7 +547,7 @@ function colorSignatureBounds({ candidates, mask, alphaMap, width, height }) {
     }
   }
 
-  if (count < Math.max(35, width * height * 0.000035) || maxX < minX || maxY < minY) return null;
+  if (count < Math.max(20, width * height * 0.000018) || maxX < minX || maxY < minY) return null;
   return {
     x: minX,
     y: minY,
@@ -590,9 +603,9 @@ function validateSignatureExtraction(extraction, width, height) {
   const area = bounds.width * bounds.height;
   const density = count / Math.max(1, area);
   const aspect = bounds.width / Math.max(1, bounds.height);
-  const enoughInk = count >= Math.max(45, width * height * 0.000025);
-  const signatureLike = aspect >= 1.05 && bounds.width >= width * 0.035 && bounds.height >= height * 0.01;
-  const notBlob = density < 0.62 && bounds.width <= width * 0.78 && bounds.height <= height * 0.55;
+  const enoughInk = count >= Math.max(28, width * height * 0.000016);
+  const signatureLike = aspect >= 0.95 && bounds.width >= width * 0.025 && bounds.height >= height * 0.007;
+  const notBlob = density < 0.68 && bounds.width <= width * 0.82 && bounds.height <= height * 0.58;
   return enoughInk && signatureLike && notBlob;
 }
 
