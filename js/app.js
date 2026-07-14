@@ -16,6 +16,7 @@ import { ROLES, STATUS } from "./utils/constants.js";
 const root = document.querySelector("#app");
 const launchScreen = document.querySelector("#launch-screen");
 const THEME_KEY = "sad-theme";
+const REALTIME_RENDER_ROUTES = new Set(["pending"]);
 const state = {
   user: null,
   data: null,
@@ -39,7 +40,7 @@ async function init() {
 
 function registerAppServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker.register("./sw.js?v=20260714-18", { scope: "./" })
+  navigator.serviceWorker.register("./sw.js?v=20260714-19", { scope: "./" })
     .then((registration) => {
       const worker = registration.active || registration.waiting || registration.installing;
       worker?.postMessage?.({ type: "SAD_PRECACHE" });
@@ -257,10 +258,22 @@ async function syncBrowserNotifications() {
     },
     onData: async (data) => {
       await syncAppBadge(data, state.user);
-      render();
+      renderRealtimeData();
     },
     onClick: openRequestFromNotification
   });
+}
+
+function renderRealtimeData() {
+  if (!REALTIME_RENDER_ROUTES.has(state.route)) return;
+  if (isUserEditing()) return;
+  render();
+}
+
+function isUserEditing() {
+  const activeElement = document.activeElement;
+  if (!activeElement) return false;
+  return Boolean(activeElement.closest?.("input, textarea, select, [contenteditable='true']"));
 }
 
 function render() {
