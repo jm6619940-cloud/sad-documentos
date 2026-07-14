@@ -519,9 +519,10 @@ async function processScannedSignature(file) {
       const sourceY = cropY + Math.floor(pixelOffset / cropWidth);
       const sourceIndex = sourceY * width + sourceX;
       const inkAlpha = mask[sourceIndex] && alpha > 10 ? alphaMap[sourceIndex] : 0;
-      output.data[index] = 29;
-      output.data[index + 1] = 78;
-      output.data[index + 2] = 216;
+      const color = preserveScannedInkTone(pixels.data[index], pixels.data[index + 1], pixels.data[index + 2]);
+      output.data[index] = color.red;
+      output.data[index + 1] = color.green;
+      output.data[index + 2] = color.blue;
       output.data[index + 3] = inkAlpha;
     }
 
@@ -533,6 +534,16 @@ async function processScannedSignature(file) {
   } finally {
     URL.revokeObjectURL(imageUrl);
   }
+}
+
+function preserveScannedInkTone(red, green, blue) {
+  const brightness = (red + green + blue) / 3;
+  const lift = brightness > 205 ? 0.82 : brightness > 165 ? 0.92 : 1;
+  return {
+    red: Math.max(0, Math.min(255, Math.round(red * lift))),
+    green: Math.max(0, Math.min(255, Math.round(green * lift))),
+    blue: Math.max(0, Math.min(255, Math.round(blue * lift)))
+  };
 }
 
 function extractSignatureInk(context, width, height) {
