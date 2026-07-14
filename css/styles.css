@@ -724,14 +724,14 @@ td {
 }
 
 .compact-date {
-  font-size: 0.82rem;
-  line-height: 1.25;
+  font-size: 0.8rem;
+  line-height: 1.2;
 }
 
 .request-list {
   width: 100%;
   min-width: 0;
-  font-size: calc(1rem + 2px);
+  font-size: 0.94rem;
 }
 
 .mobile-only-cell {
@@ -741,32 +741,32 @@ td {
 .request-grid {
   display: grid;
   grid-template-columns: var(--request-columns);
-  column-gap: clamp(8px, 0.8vw, 14px);
+  column-gap: clamp(10px, 0.9vw, 18px);
   align-items: stretch;
   min-width: 0;
 }
 
 .request-grid-wide {
-  --request-columns: minmax(180px, 1.7fr) minmax(112px, 0.78fr) minmax(132px, 0.9fr) minmax(112px, max-content) minmax(96px, 0.7fr) minmax(92px, max-content) minmax(190px, 1.32fr) minmax(150px, 0.95fr) minmax(190px, 1.15fr);
+  --request-columns: minmax(180px, 1.8fr) minmax(108px, 0.82fr) minmax(124px, 0.88fr) minmax(104px, max-content) minmax(96px, 0.7fr) minmax(84px, max-content) minmax(190px, 1.35fr) minmax(140px, 0.92fr) minmax(170px, 1.05fr);
 }
 
 .request-grid-own {
-  --request-columns: minmax(220px, 2fr) minmax(112px, max-content) minmax(104px, 0.75fr) minmax(92px, max-content) minmax(190px, 1.35fr) minmax(150px, 0.95fr) minmax(190px, 1.15fr);
+  --request-columns: minmax(220px, 2fr) minmax(106px, max-content) minmax(100px, 0.72fr) minmax(84px, max-content) minmax(220px, 1.42fr) minmax(142px, 0.9fr) minmax(172px, 1fr);
 }
 
 .request-header {
-  padding: 8px 0 10px;
+  padding: 6px 0 8px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  min-height: 38px;
+  min-height: 34px;
 }
 
 .request-row {
-  min-height: 60px;
+  min-height: 54px;
   padding: 0;
   border-bottom: 1px solid var(--line);
   align-items: center;
@@ -800,11 +800,11 @@ td {
 
 .request-cell {
   align-self: stretch;
-  min-height: 60px;
+  min-height: 54px;
   height: 100%;
 }
 
-.request-grid-own > .request-cell.mobile-only-cell {
+.request-list.request-grid-own .request-row > .request-cell.mobile-only-cell {
   display: none !important;
 }
 
@@ -887,6 +887,11 @@ td {
 
 .request-cell-title {
   font-weight: 800;
+}
+
+.request-cell-title strong {
+  font-size: 0.94rem;
+  line-height: 1.18;
 }
 
 .request-cell-status,
@@ -1031,10 +1036,10 @@ tr:hover td {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 22px;
-  padding: 3px 8px;
+  min-height: 20px;
+  padding: 2px 7px;
   border-radius: 999px;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   line-height: 1;
   font-weight: 800;
   white-space: nowrap;
@@ -1434,7 +1439,7 @@ tr:hover td {
 .approval-summary {
   display: flex;
   flex-wrap: nowrap;
-  gap: 4px;
+  gap: 5px;
   align-items: center;
   min-width: 0;
   max-width: 100%;
@@ -1444,14 +1449,14 @@ tr:hover td {
 .approval-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 30px;
+  gap: 5px;
+  min-height: 26px;
   max-width: 100%;
-  padding: 3px 6px;
+  padding: 2px 6px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-muted);
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   line-height: 1;
   min-width: 0;
   overflow: hidden;
@@ -1460,7 +1465,7 @@ tr:hover td {
 
 .approval-chip .badge {
   flex: 0 0 auto;
-  padding-inline: 7px;
+  padding-inline: 6px;
 }
 
 .approval-more {
@@ -2366,11 +2371,11 @@ tr:hover td {
   }
 
   .request-grid-wide {
-    --request-columns: minmax(160px, 1.55fr) minmax(100px, 0.72fr) minmax(112px, 0.78fr) minmax(104px, max-content) minmax(86px, 0.62fr) minmax(86px, max-content) minmax(160px, 1.08fr) minmax(132px, 0.88fr) minmax(162px, 1fr);
+    --request-columns: minmax(150px, 1.55fr) minmax(92px, 0.74fr) minmax(104px, 0.76fr) minmax(96px, max-content) minmax(82px, 0.58fr) minmax(76px, max-content) minmax(154px, 1.05fr) minmax(124px, 0.82fr) minmax(145px, 0.9fr);
   }
 
   .request-grid-own {
-    --request-columns: minmax(190px, 1.7fr) minmax(104px, max-content) minmax(92px, 0.62fr) minmax(86px, max-content) minmax(162px, 1.1fr) minmax(132px, 0.88fr) minmax(162px, 1fr);
+    --request-columns: minmax(170px, 1.65fr) minmax(98px, max-content) minmax(86px, 0.58fr) minmax(76px, max-content) minmax(152px, 1.05fr) minmax(124px, 0.82fr) minmax(145px, 0.92fr);
   }
 
   .request-grid {
@@ -2378,13 +2383,13 @@ tr:hover td {
   }
 
   .request-header {
-    font-size: 0.7rem;
+    font-size: 0.66rem;
   }
 
   .request-cell,
   .compact-date,
   .approval-chip {
-    font-size: 0.84rem;
+    font-size: 0.78rem;
   }
 }
 
@@ -2449,7 +2454,7 @@ tr:hover td {
     white-space: normal;
   }
 
-  .request-grid-own > .request-cell.mobile-only-cell[data-mobile-essential] {
+  .request-list.request-grid-own .request-row > .request-cell.mobile-only-cell[data-mobile-essential] {
     display: grid !important;
   }
 
