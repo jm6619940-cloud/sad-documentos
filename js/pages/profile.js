@@ -520,10 +520,11 @@ async function processScannedSignature(file) {
       const sourceIndex = sourceY * width + sourceX;
       const inkAlpha = mask[sourceIndex] && alpha > 10 ? alphaMap[sourceIndex] : 0;
       const color = realisticBluePenTone(pixels.data[index], pixels.data[index + 1], pixels.data[index + 2], inkAlpha);
+      const naturalAlpha = realisticPenAlpha(pixels.data[index], pixels.data[index + 1], pixels.data[index + 2], inkAlpha);
       output.data[index] = color.red;
       output.data[index + 1] = color.green;
       output.data[index + 2] = color.blue;
-      output.data[index + 3] = inkAlpha;
+      output.data[index + 3] = naturalAlpha;
     }
 
     const outputCanvas = document.createElement("canvas");
@@ -539,22 +540,23 @@ async function processScannedSignature(file) {
 function realisticBluePenTone(red, green, blue, inkAlpha) {
   const brightness = (red + green + blue) / 3;
   const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
-  const pressure = clampNumber(
-    ((245 - brightness) / 150 * 0.42)
-    + (chroma / 95 * 0.28)
-    + (inkAlpha / 245 * 0.5),
-    0,
-    1
-  );
-  const lightInk = { red: 48, green: 96, blue: 206 };
-  const darkInk = { red: 16, green: 55, blue: 164 };
-  const purpleShift = clampNumber((red - green) / 120, 0, 0.18);
-  const highlight = brightness > 214 ? 10 : 0;
+  const pressure = clampNumber((inkAlpha / 245 * 0.72) + ((245 - brightness) / 180 * 0.2) + (chroma / 120 * 0.08), 0, 1);
+  const baseInk = { red: 37, green: 36, blue: 130 };
+  const highlight = 1 - pressure;
+  const shadow = pressure;
   return {
-    red: Math.round((lightInk.red * (1 - pressure)) + (darkInk.red * pressure) + (purpleShift * 22) + highlight),
-    green: Math.round((lightInk.green * (1 - pressure)) + (darkInk.green * pressure) + highlight),
-    blue: Math.round((lightInk.blue * (1 - pressure)) + (darkInk.blue * pressure) + (purpleShift * 10) + highlight)
+    red: Math.round(baseInk.red + (highlight * 22) - (shadow * 10)),
+    green: Math.round(baseInk.green + (highlight * 20) - (shadow * 8)),
+    blue: Math.round(baseInk.blue + (highlight * 34) - (shadow * 14))
   };
+}
+
+function realisticPenAlpha(red, green, blue, inkAlpha) {
+  if (!inkAlpha) return 0;
+  const brightness = (red + green + blue) / 3;
+  const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
+  const pressure = clampNumber((inkAlpha / 245 * 0.68) + ((245 - brightness) / 185 * 0.22) + (chroma / 130 * 0.1), 0, 1);
+  return Math.round(48 + (pressure * 192));
 }
 
 function clampNumber(value, min, max) {
@@ -1131,12 +1133,7 @@ function renderSmoothSignatureCanvas(sourceCanvas) {
   smoothContext.imageSmoothingEnabled = true;
   smoothContext.imageSmoothingQuality = "high";
   smoothContext.scale(scale, scale);
-  smoothContext.filter = "blur(0.35px)";
   smoothContext.drawImage(sourceCanvas, 0, 0);
-  smoothContext.filter = "none";
-  smoothContext.globalAlpha = 0.85;
-  smoothContext.drawImage(sourceCanvas, 0, 0);
-  smoothContext.globalAlpha = 1;
   return smoothCanvas;
 }
 
