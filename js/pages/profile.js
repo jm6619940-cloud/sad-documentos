@@ -176,6 +176,7 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   const padLabel = form.querySelector("[data-signature-pad-label]");
   let drawing = false;
   let hasInk = false;
+  let signatureMode = form.elements.signature_mode?.value || "draw";
   let strokeWidth = Number(strokeInput?.value || 2.6);
 
   function clearPad() {
@@ -220,6 +221,7 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   }
 
   canvas.addEventListener("pointerdown", (event) => {
+    if (signatureMode !== "draw") return;
     event.preventDefault();
     drawing = true;
     hasInk = true;
@@ -252,11 +254,16 @@ function setupSignaturePad({ form, user, signature, refresh }) {
 
   strokeInput?.addEventListener("input", updateStroke);
   padSizeInput?.addEventListener("input", updatePadSize);
+  function setSignatureMode(mode) {
+    signatureMode = mode;
+    scanPanel.hidden = mode !== "scan";
+    canvas.classList.toggle("is-readonly", mode === "scan");
+    if (padLabel) padLabel.textContent = mode === "scan" ? "Vista previa digitalizada" : (signature ? "Dibuja la nueva firma" : "Dibuja tu firma");
+  }
+
   form.querySelectorAll("[data-signature-mode]").forEach((input) => {
     input.addEventListener("change", () => {
-      const mode = form.elements.signature_mode.value;
-      scanPanel.hidden = mode !== "scan";
-      if (padLabel) padLabel.textContent = mode === "scan" ? "Vista previa digitalizada" : (signature ? "Dibuja la nueva firma" : "Dibuja tu firma");
+      setSignatureMode(form.elements.signature_mode.value);
     });
   });
   uploadInputs.forEach((uploadInput) => {
@@ -318,6 +325,7 @@ function setupSignaturePad({ form, user, signature, refresh }) {
   requestAnimationFrame(() => {
     updateStroke();
     updatePadSize();
+    setSignatureMode(signatureMode);
   });
 }
 
@@ -337,7 +345,12 @@ async function processScannedSignature(file) {
     const sourceContext = sourceCanvas.getContext("2d", { willReadFrequently: true });
     sourceContext.drawImage(image, 0, 0, width, height);
 
-    const extraction = await extractSignatureInkWithOpenCv(sourceCanvas).catch(() => null) || extractSignatureInk(sourceContext, width, height);
+    const extraction = extractSignatureInkByInkColor(sourceContext, width, height)
+      || await extractSignatureInkWithOpenCv(sourceCanvas).catch(() => null)
+      || (() => {
+        const fallbackExtraction = extractSignatureInk(sourceContext, width, height);
+        return fallbackExtraction && validateSignatureExtraction(fallbackExtraction, width, height) ? fallbackExtraction : null;
+      })();
     if (!extraction) throw new Error("No detectamos la firma. Usa una foto con fondo claro y tinta visible.");
     const { mask, alphaMap, bounds } = extraction;
 
@@ -427,6 +440,51 @@ function extractSignatureInk(context, width, height) {
   return { mask, alphaMap, bounds: keptBounds };
 }
 
+function extractSignatureInkByInkColor(context, width, height) {
+  const pixels = context.getImageData(0, 0, width, height).data;
+  const candidates = new Uint8Array(width * height);
+  const visited = new Uint8Array(width * height);
+  const mask = new Uint8Array(width * height);
+  const alphaMap = new Uint8ClampedArray(width * height);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      const pixelIndex = index * 4;
+      const alpha = pixels[pixelIndex + 3];
+      if (alpha <= 10) continue;
+      const red = pixels[pixelIndex];
+      const green = pixels[pixelIndex + 1];
+      const blue = pixels[pixelIndex + 2];
+      const max = Math.max(red, green, blue);
+      const min = Math.min(red, green, blue);
+      const chroma = max - min;
+      const brightness = (red + green + blue) / 3;
+      const saturation = chroma / Math.max(1, max);
+      const purpleBlueInk = (
+        brightness < 235
+        && saturation > 0.075
+        && chroma > 16
+        && blue > green + 10
+        && red > green - 4
+        && blue > red - 18
+      );
+      if (!purpleBlueInk) continue;
+      const confidence = (chroma * 4.6) + ((blue - green) * 2.4) + Math.max(0, red - green) + ((235 - brightness) * 0.8);
+      const inkAlpha = Math.max(0, Math.min(245, Math.round(confidence)));
+      if (inkAlpha < 92) continue;
+      candidates[index] = 1;
+      alphaMap[index] = inkAlpha;
+    }
+  }
+
+  const keptBounds = collectSignatureComponents({ candidates, visited, mask, width, height });
+  if (!keptBounds) return null;
+  softenSignatureMask({ mask, alphaMap, width, height });
+  const colorExtraction = { mask, alphaMap, bounds: keptBounds };
+  return validateSignatureExtraction(colorExtraction, width, height) ? colorExtraction : null;
+}
+
 async function extractSignatureInkWithOpenCv(sourceCanvas) {
   const cv = await loadOpenCv();
   if (!cv?.Mat || !cv?.connectedComponentsWithStats) return null;
@@ -457,12 +515,27 @@ async function extractSignatureInkWithOpenCv(sourceCanvas) {
 
     const componentCount = cv.connectedComponentsWithStats(cleaned, labels, stats, centroids, 8, cv.CV_32S);
     const extraction = extractOpenCvComponents({ cv, gray, cleaned, labels, stats, componentCount, width: sourceCanvas.width, height: sourceCanvas.height });
-    if (!extraction) return null;
+    if (!extraction || !validateSignatureExtraction(extraction, sourceCanvas.width, sourceCanvas.height)) return null;
     softenSignatureMask(extraction);
     return extraction;
   } finally {
     [src, gray, blurred, binary, horizontal, noLines, cleaned, labels, stats, centroids, smallKernel, horizontalKernel].forEach((mat) => mat?.delete?.());
   }
+}
+
+function validateSignatureExtraction(extraction, width, height) {
+  const { mask, bounds } = extraction;
+  let count = 0;
+  for (let index = 0; index < mask.length; index += 1) {
+    if (mask[index]) count += 1;
+  }
+  const area = bounds.width * bounds.height;
+  const density = count / Math.max(1, area);
+  const aspect = bounds.width / Math.max(1, bounds.height);
+  const enoughInk = count >= Math.max(70, width * height * 0.00008);
+  const signatureLike = aspect >= 1.28 && bounds.width >= width * 0.055 && bounds.height >= height * 0.018;
+  const notBlob = density < 0.46 && bounds.width <= width * 0.62 && bounds.height <= height * 0.48;
+  return enoughInk && signatureLike && notBlob;
 }
 
 function extractOpenCvComponents({ gray, cleaned, labels, stats, componentCount, width, height }) {
