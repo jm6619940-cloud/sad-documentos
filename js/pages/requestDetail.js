@@ -730,25 +730,35 @@ function enableSignatureDrag(placement) {
 }
 
 async function signPdfAtPoint({ file, source, signing, placement, pin }) {
-  const { PDFDocument, degrees } = await getPdfLib();
+  const { PDFDocument } = await getPdfLib();
+  const pdfjs = await getPdfJs();
   const pdfBytes = await fetchBytes(source);
-  const pdfDoc = await PDFDocument.load(pdfBytes);
-  const page = pdfDoc.getPages()[placement.pageIndex];
-  if (!page) throw new Error("No se pudo ubicar la pagina seleccionada.");
+  const sourcePdf = await pdfjs.getDocument({ data: pdfBytes.slice(0) }).promise;
+  const signedPdf = await PDFDocument.create();
 
   const signatureBytes = dataUrlToBytes(await signatureInkDataUrl(signing.signature.firma_data_url));
-  const signatureImage = await pdfDoc.embedPng(signatureBytes);
-  const { width: pageWidth, height: pageHeight } = page.getSize();
-  const pdfRect = pdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight });
-  const imageWidth = pdfRect.width;
-  const imageHeight = pdfRect.height;
-  const x = clamp(pdfRect.x, 0, Math.max(0, pageWidth - imageWidth));
-  const y = clamp(pdfRect.y, 0, Math.max(0, pageHeight - imageHeight));
-  const rotation = normalizePdfRotation(page.getRotation()?.angle || 0);
+  const signatureImage = await signedPdf.embedPng(signatureBytes);
 
-  page.drawImage(signatureImage, rotatedPdfImageOptions({ x, y, width: imageWidth, height: imageHeight, rotation, degrees }));
+  for (let pageNumber = 1; pageNumber <= sourcePdf.numPages; pageNumber += 1) {
+    const sourcePage = await sourcePdf.getPage(pageNumber);
+    const viewport = sourcePage.getViewport({ scale: 1 });
+    const pageWidth = viewport.width;
+    const pageHeight = viewport.height;
+    const pageImage = await renderPdfPageImage({ sourcePage, pageWidth, pageHeight, signedPdf });
+    const page = signedPdf.addPage([pageWidth, pageHeight]);
+    page.drawImage(pageImage, { x: 0, y: 0, width: pageWidth, height: pageHeight });
 
-  const signedBytes = await pdfDoc.save();
+    if (pageNumber - 1 === placement.pageIndex) {
+      const pdfRect = flattenedPdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight });
+      const imageWidth = pdfRect.width;
+      const imageHeight = pdfRect.height;
+      const x = clamp(pdfRect.x, 0, Math.max(0, pageWidth - imageWidth));
+      const y = clamp(pdfRect.y, 0, Math.max(0, pageHeight - imageHeight));
+      page.drawImage(signatureImage, { x, y, width: imageWidth, height: imageHeight });
+    }
+  }
+
+  const signedBytes = await signedPdf.save();
   const blob = new Blob([signedBytes], { type: "application/pdf" });
   await dataService.saveSignedDraft({
     solicitudId: signing.solicitud.id,
@@ -761,55 +771,36 @@ async function signPdfAtPoint({ file, source, signing, placement, pin }) {
   });
 }
 
-function pdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight }) {
+async function renderPdfPageImage({ sourcePage, pageWidth, pageHeight, signedPdf }) {
+  const renderScale = pdfSigningRenderScale(pageWidth, pageHeight);
+  const viewport = sourcePage.getViewport({ scale: renderScale });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  await sourcePage.render({ canvasContext: context, viewport }).promise;
+  const pageImageBytes = dataUrlToBytes(canvas.toDataURL("image/jpeg", 0.94));
+  return signedPdf.embedJpg(pageImageBytes);
+}
+
+function pdfSigningRenderScale(pageWidth, pageHeight) {
+  const maxPixels = 8000000;
+  const basePixels = Math.max(1, pageWidth * pageHeight);
+  return clamp(Math.sqrt(maxPixels / basePixels), 1.8, 2.6);
+}
+
+function flattenedPdfSignatureRect({ placement, signatureImage, pageWidth, pageHeight }) {
   const aspect = signatureImage.height / signatureImage.width;
-  const viewport = placement.pdfViewport;
-  if (!viewport?.convertToPdfPoint) {
-    const width = Math.min(pageWidth * 0.28 * placement.sizeScale, pageWidth * 0.72, pageWidth - 24);
-    const height = width * aspect;
-    return {
-      x: (placement.ratioX * pageWidth) - (width / 2),
-      y: ((1 - placement.ratioY) * pageHeight) - (height / 2),
-      width,
-      height
-    };
-  }
-
-  const viewportWidth = Math.max(1, viewport.width);
-  const centerX = placement.ratioX * viewportWidth;
-  const centerY = placement.ratioY * Math.max(1, viewport.height);
-  const visualWidth = clamp(viewportWidth * 0.28 * placement.sizeScale, 72, Math.min(560, viewportWidth * 0.72));
-  const visualHeight = visualWidth * aspect;
-  const topLeft = viewport.convertToPdfPoint(centerX - (visualWidth / 2), centerY - (visualHeight / 2));
-  const bottomRight = viewport.convertToPdfPoint(centerX + (visualWidth / 2), centerY + (visualHeight / 2));
-  const x = Math.min(topLeft[0], bottomRight[0]);
-  const y = Math.min(topLeft[1], bottomRight[1]);
-  const width = Math.abs(bottomRight[0] - topLeft[0]);
-  const height = Math.abs(bottomRight[1] - topLeft[1]);
-
+  const width = Math.min(pageWidth * 0.28 * placement.sizeScale, pageWidth * 0.72, pageWidth - 24);
+  const height = width * aspect;
   return {
-    x,
-    y,
-    width: clamp(width, 24, pageWidth),
-    height: clamp(height, 12, pageHeight)
+    x: (placement.ratioX * pageWidth) - (width / 2),
+    y: ((1 - placement.ratioY) * pageHeight) - (height / 2),
+    width,
+    height
   };
-}
-
-function normalizePdfRotation(value) {
-  return ((Number(value) % 360) + 360) % 360;
-}
-
-function rotatedPdfImageOptions({ x, y, width, height, rotation, degrees }) {
-  if (rotation === 180) {
-    return { x: x + width, y: y + height, width, height, rotate: degrees(180) };
-  }
-  if (rotation === 90) {
-    return { x: x + height, y, width, height, rotate: degrees(90) };
-  }
-  if (rotation === 270) {
-    return { x, y: y + width, width, height, rotate: degrees(270) };
-  }
-  return { x, y, width, height };
 }
 
 async function signImageAtPoint({ file, source, signing, placement, pin }) {
