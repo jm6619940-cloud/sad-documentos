@@ -541,7 +541,7 @@ function realisticBluePenTone(red, green, blue, inkAlpha) {
   const brightness = (red + green + blue) / 3;
   const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
   const pressure = clampNumber((inkAlpha / 245 * 0.72) + ((245 - brightness) / 180 * 0.2) + (chroma / 120 * 0.08), 0, 1);
-  const baseInk = { red: 37, green: 36, blue: 130 };
+  const baseInk = { red: 19, green: 11, blue: 73 };
   const highlight = 1 - pressure;
   const shadow = pressure;
   return {
