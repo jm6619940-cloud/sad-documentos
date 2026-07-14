@@ -1,7 +1,7 @@
 import { ROLE_LABELS, ROLES } from "../utils/constants.js";
 import { pageTitle } from "../components/layout.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
-import { dataService } from "../services/dataService.js?v=20260713-5";
+import { dataService } from "../services/dataService.js?v=20260714-2";
 import { toast } from "../components/toast.js?v=20260708-12";
 
 const OPENCV_JS_URL = "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js";

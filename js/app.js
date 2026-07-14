@@ -1,16 +1,16 @@
 import { renderLoginShell, renderAppShell } from "./components/layout.js?v=20260708-14";
 import { closeModal, openModal } from "./components/modal.js?v=20260708-12";
 import { toast } from "./components/toast.js?v=20260708-12";
-import { dataService } from "./services/dataService.js?v=20260713-5";
+import { dataService } from "./services/dataService.js?v=20260714-2";
 import { renderDashboard } from "./pages/dashboard.js?v=20260710-1";
-import { renderNewRequest } from "./pages/newRequest.js?v=20260713-1";
+import { renderNewRequest } from "./pages/newRequest.js?v=20260714-2";
 import { clearRequestTableState, renderRequestsTable } from "./pages/requestsTable.js?v=20260714-15";
-import { renderRequestDetail } from "./pages/requestDetail.js?v=20260714-14";
-import { renderUsers } from "./pages/users.js?v=20260713-1";
-import { renderCatalogs } from "./pages/catalogs.js?v=20260713-1";
-import { renderProfile } from "./pages/profile.js?v=20260714-14";
-import { renderNotifications } from "./pages/notifications.js?v=20260710-1";
-import { startBrowserNotificationStream, stopBrowserNotificationStream, syncAppBadge } from "./services/browserNotifications.js?v=20260714-14";
+import { renderRequestDetail } from "./pages/requestDetail.js?v=20260714-15";
+import { renderUsers } from "./pages/users.js?v=20260714-2";
+import { renderCatalogs } from "./pages/catalogs.js?v=20260714-2";
+import { renderProfile } from "./pages/profile.js?v=20260714-15";
+import { renderNotifications } from "./pages/notifications.js?v=20260714-3";
+import { startBrowserNotificationStream, stopBrowserNotificationStream, syncAppBadge } from "./services/browserNotifications.js?v=20260714-16";
 import { ROLES, STATUS } from "./utils/constants.js";
 
 const root = document.querySelector("#app");
@@ -39,7 +39,7 @@ async function init() {
 
 function registerAppServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  navigator.serviceWorker.register("./sw.js?v=20260714-17", { scope: "./" })
+  navigator.serviceWorker.register("./sw.js?v=20260714-18", { scope: "./" })
     .then((registration) => {
       const worker = registration.active || registration.waiting || registration.installing;
       worker?.postMessage?.({ type: "SAD_PRECACHE" });

@@ -1,10 +1,10 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260713-5";
+import { dataService } from "./dataService.js?v=20260714-2";
 import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
 const ICON_URL = "./assets/icon-192.png?v=20260710-1";
-const SERVICE_WORKER_URL = "./sw.js?v=20260714-14";
+const SERVICE_WORKER_URL = "./sw.js?v=20260714-18";
 const REALTIME_REFRESH_DELAY_MS = 500;
 const PUSH_REPAIR_KEY = "sad-push-needs-repair";
 

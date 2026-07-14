@@ -1,6 +1,7 @@
 import { APP_CONFIG } from "../config.js";
 import { getSupabase } from "./supabaseClient.js";
 import { getExtension, validateFiles } from "../utils/validators.js";
+import { optimizePdfFile } from "../utils/pdfOptimizer.js?v=20260714-2";
 
 function stripPassword(values) {
   const { password, ...rest } = values;
@@ -115,25 +116,42 @@ function validateCorrectionPayload({ values, files, removeFileIds, existingFiles
 
 async function uploadRequestFiles(supabase, solicitudId, files) {
   for (const file of files) {
-    const extension = getExtension(file.name);
-    const path = `${solicitudId}/${storageFileName(file)}`;
-    const contentType = file.type || STORAGE_MIME_BY_EXTENSION[extension] || "application/octet-stream";
-    const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, file, {
+    const optimization = await optimizePdfFile(file);
+    const uploadFile = optimization.file;
+    const extension = getExtension(uploadFile.name);
+    const path = `${solicitudId}/${storageFileName(uploadFile)}`;
+    const contentType = uploadFile.type || STORAGE_MIME_BY_EXTENSION[extension] || "application/octet-stream";
+    const upload = await supabase.storage.from(APP_CONFIG.storageBucket).upload(path, uploadFile, {
       upsert: false,
       contentType
     });
     if (upload.error) throw upload.error;
     const insert = await supabase.rpc("registrar_archivo_solicitud", {
       p_solicitud_id: solicitudId,
-      p_nombre_original: file.name,
+      p_nombre_original: uploadFile.name,
       p_nombre_storage: path.split("/").pop(),
       p_mime_type: contentType,
       p_extension: extension,
-      p_tamano: file.size,
+      p_tamano: uploadFile.size,
       p_ruta_storage: path
     });
     if (insert.error) throw insert.error;
+
+    if (optimization.optimized) {
+      await dataService.audit(
+        null,
+        solicitudId,
+        "PDF_OPTIMIZADO",
+        `${uploadFile.name}: ${formatBytes(optimization.originalSize)} -> ${formatBytes(optimization.optimizedSize)}.`
+      ).catch(() => {});
+    }
   }
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "0 KB";
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 async function deleteRequestFiles(supabase, files) {
