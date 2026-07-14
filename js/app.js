@@ -8,9 +8,9 @@ import { clearRequestTableState, renderRequestsTable } from "./pages/requestsTab
 import { renderRequestDetail } from "./pages/requestDetail.js?v=20260713-7";
 import { renderUsers } from "./pages/users.js?v=20260713-1";
 import { renderCatalogs } from "./pages/catalogs.js?v=20260713-1";
-import { renderProfile } from "./pages/profile.js?v=20260713-8";
+import { renderProfile } from "./pages/profile.js?v=20260714-1";
 import { renderNotifications } from "./pages/notifications.js?v=20260710-1";
-import { startBrowserNotificationStream, stopBrowserNotificationStream, syncAppBadge } from "./services/browserNotifications.js?v=20260710-4";
+import { startBrowserNotificationStream, stopBrowserNotificationStream, syncAppBadge } from "./services/browserNotifications.js?v=20260714-1";
 import { ROLES, STATUS } from "./utils/constants.js";
 
 const root = document.querySelector("#app");
@@ -27,6 +27,7 @@ let syncingAuthState = false;
 
 async function init() {
   applyTheme(state.theme);
+  registerAppServiceWorker();
   await watchAuthState();
   state.user = await dataService.getCurrentUser();
   if (state.user) state.data = await dataService.listData();
@@ -34,6 +35,21 @@ async function init() {
   await syncBrowserNotifications();
   render();
   await openRequestFromUrl();
+}
+
+function registerAppServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("./sw.js?v=20260714-1", { scope: "./" })
+    .then((registration) => {
+      const worker = registration.active || registration.waiting || registration.installing;
+      worker?.postMessage?.({ type: "SAD_PRECACHE" });
+      navigator.serviceWorker.ready.then((readyRegistration) => {
+        readyRegistration.active?.postMessage?.({ type: "SAD_PRECACHE" });
+      }).catch(() => {});
+    })
+    .catch((error) => {
+      console.warn("No se pudo preparar el cache local de SAD.", error);
+    });
 }
 
 async function refresh(options = {}) {

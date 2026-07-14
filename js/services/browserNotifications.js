@@ -4,7 +4,7 @@ import { getSupabase } from "./supabaseClient.js";
 
 const POLL_INTERVAL_MS = 30000;
 const ICON_URL = "./assets/icon-192.png?v=20260710-1";
-const SERVICE_WORKER_URL = "./sw.js?v=20260710-3";
+const SERVICE_WORKER_URL = "./sw.js?v=20260714-1";
 const REALTIME_REFRESH_DELAY_MS = 500;
 const PUSH_REPAIR_KEY = "sad-push-needs-repair";
 

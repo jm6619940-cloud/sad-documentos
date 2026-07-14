@@ -59,41 +59,52 @@ export function renderProfile({ user, data, refresh }) {
           ${signature?.pin_updated_at ? "<span class='badge Aprobado'>PIN activo</span>" : "<span class='badge Pendiente'>Requiere PIN</span>"}
         </div>
         ${needsSecuritySetup ? "<p class='inline-warning'>Para aprobar documentos debes crear tu firma y un PIN numerico.</p>" : ""}
-        ${signature ? `
-          <div class="signature-current">
-            <span>Firma actual · version ${escapeHtml(signature.version || 1)}</span>
-            <img src="${escapeAttr(signature.firma_data_url)}" alt="Firma registrada">
+        <div class="signature-overview">
+          <div class="signature-current ${signature ? "" : "is-empty"}">
+            <span>${signature ? `Firma actual · version ${escapeHtml(signature.version || 1)}` : "Firma pendiente"}</span>
+            ${signature
+              ? `<img src="${escapeAttr(signature.firma_data_url)}" alt="Firma registrada">`
+              : "<p>Registra una firma dibujada o escaneada para poder firmar documentos internos.</p>"}
           </div>
-        ` : ""}
+          <div class="signature-cache-card">
+            <strong>Escaner local</strong>
+            <p>OpenCV se guarda en cache al instalar la app. La firma se procesa en este dispositivo y no se envia a terceros.</p>
+          </div>
+        </div>
         <form class="signature-form" data-signature-form>
-          <div class="signature-mode-switch" role="group" aria-label="Metodo para registrar firma">
-            <label>
-              <input type="radio" name="signature_mode" value="draw" checked data-signature-mode>
-              <span>Dibujar</span>
-            </label>
-            <label>
-              <input type="radio" name="signature_mode" value="scan" data-signature-mode>
-              <span>Escanear firma</span>
-            </label>
-          </div>
-          <div class="signature-scan-panel" data-signature-scan-panel hidden>
-            <span>Foto o imagen de tu firma</span>
-            <div class="signature-scan-actions">
-              <label class="button secondary btn btn-outline-secondary">
-                <span>Elegir de galeria</span>
-                <input type="file" accept="image/*" data-signature-upload data-signature-upload-source="gallery">
-              </label>
-              <label class="button btn btn-primary">
-                <span>Tomar foto</span>
-                <input type="file" accept="image/*" capture="environment" data-signature-upload data-signature-upload-source="camera">
-              </label>
+          <div class="signature-workspace">
+            <div class="signature-method-card">
+              <span class="signature-card-label">Metodo de captura</span>
+              <div class="signature-mode-switch" role="group" aria-label="Metodo para registrar firma">
+                <label>
+                  <input type="radio" name="signature_mode" value="draw" checked data-signature-mode>
+                  <span>Dibujar</span>
+                </label>
+                <label>
+                  <input type="radio" name="signature_mode" value="scan" data-signature-mode>
+                  <span>Escanear firma</span>
+                </label>
+              </div>
+              <div class="signature-scan-panel" data-signature-scan-panel hidden>
+                <span>Foto o imagen de tu firma</span>
+                <div class="signature-scan-actions">
+                  <label class="button secondary btn btn-outline-secondary">
+                    <span>Elegir de galeria</span>
+                    <input type="file" accept="image/*" data-signature-upload data-signature-upload-source="gallery">
+                  </label>
+                  <label class="button btn btn-primary">
+                    <span>Tomar foto</span>
+                    <input type="file" accept="image/*" capture="environment" data-signature-upload data-signature-upload-source="camera">
+                  </label>
+                </div>
+                <p>Usa papel claro y buena luz. El escaner local extrae solo los trazos y descarta sombras, lineas del papel y ruido.</p>
+              </div>
             </div>
-            <p>Usa papel claro y buena luz. El sistema extrae solo los trazos de la firma y descarta sombras, lineas del papel y ruido.</p>
+            <label class="field signature-preview-card">
+              <span data-signature-pad-label>${signature ? "Dibuja la nueva firma" : "Dibuja tu firma"}</span>
+              <canvas class="signature-pad" width="860" height="260" data-signature-pad></canvas>
+            </label>
           </div>
-          <label class="field">
-            <span data-signature-pad-label>${signature ? "Dibuja la nueva firma" : "Dibuja tu firma"}</span>
-            <canvas class="signature-pad" width="860" height="260" data-signature-pad></canvas>
-          </label>
           <div class="signature-controls">
             <label class="signature-control">
               <span>Grosor del lapiz</span>
@@ -110,11 +121,11 @@ export function renderProfile({ user, data, refresh }) {
               </div>
             </label>
           </div>
-          <div class="row g-3">
+          <div class="signature-security-row">
             ${signature?.pin_updated_at ? `
-              <label class="field col-12 col-md-6"><span>PIN actual</span><input class="input form-control" type="password" name="pin_actual" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
+              <label class="field"><span>PIN actual</span><input class="input form-control" type="password" name="pin_actual" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
             ` : `
-              <label class="field col-12 col-md-6"><span>Crea tu PIN de firma</span><input class="input form-control" type="password" name="pin_nuevo" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
+              <label class="field"><span>Crea tu PIN de firma</span><input class="input form-control" type="password" name="pin_nuevo" inputmode="numeric" maxlength="12" autocomplete="off" required></label>
             `}
           </div>
           <div class="toolbar">
