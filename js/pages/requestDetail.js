@@ -344,10 +344,17 @@ export function renderRequestDetail({ solicitud, data, user, onChange }) {
     event.preventDefault();
     const submitter = event.submitter;
     const form = new FormData(event.currentTarget);
-    await dataService.actOnRequest(solicitud.id, user, submitter.value, form.get("comentario"));
-    toast("Decision registrada.", "success");
-    closeModal();
-    await onChange();
+    submitter.disabled = true;
+    try {
+      await dataService.actOnRequest(solicitud.id, user, submitter.value, form.get("comentario"));
+      toast("Decision registrada.", "success");
+      closeModal();
+      await onChange({ resetTableState: true });
+    } catch (error) {
+      toast(error.message || "No fue posible registrar la decision.", "error");
+    } finally {
+      submitter.disabled = false;
+    }
   });
 
   view.querySelector("[data-complete-purchase-form]")?.addEventListener("submit", async (event) => {

@@ -1,11 +1,11 @@
-const CACHE_NAME = "sad-static-v20260714-20";
+const CACHE_NAME = "sad-static-v20260714-21";
 const NOTIFICATION_ICON = new URL("./assets/icon-192.png?v=20260710-1", self.registration.scope).href;
 const STATIC_ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest?v=20260710-2",
   "./css/styles.css?v=20260714-18",
-  "./js/app.js?v=20260714-20",
+  "./js/app.js?v=20260714-21",
   "./js/components/layout.js?v=20260708-14",
   "./js/components/modal.js?v=20260708-12",
   "./js/components/toast.js?v=20260708-12",
@@ -15,8 +15,8 @@ const STATIC_ASSETS = [
   "./js/services/browserNotifications.js?v=20260714-16",
   "./js/pages/dashboard.js?v=20260710-1",
   "./js/pages/newRequest.js?v=20260714-2",
-  "./js/pages/requestsTable.js?v=20260714-15",
-  "./js/pages/requestDetail.js?v=20260714-16",
+  "./js/pages/requestsTable.js?v=20260714-16",
+  "./js/pages/requestDetail.js?v=20260714-17",
   "./js/pages/users.js?v=20260714-2",
   "./js/pages/catalogs.js?v=20260714-2",
   "./js/pages/profile.js?v=20260714-15",

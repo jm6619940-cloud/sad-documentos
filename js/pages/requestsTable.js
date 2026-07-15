@@ -3,7 +3,7 @@ import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260708-
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260714-15";
+import { renderRequestDetail } from "./requestDetail.js?v=20260714-17";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
 import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v=20260709-4";
 
@@ -130,7 +130,15 @@ export function renderRequestsTable({ mode, user, data, refresh }) {
   const openDetail = (id) => {
     const solicitud = data.solicitudes.find((item) => item.id === id);
     if (!solicitud) return;
-    openModal(renderRequestDetail({ solicitud, data, user, onChange: refresh }), { title: solicitud.codigo });
+    openModal(renderRequestDetail({ solicitud, data, user, onChange: refreshTableAfterDetailChange }), { title: solicitud.codigo });
+  };
+
+  const refreshTableAfterDetailChange = async (options = {}) => {
+    if (options.resetTableState) {
+      tableState.currentPage = 1;
+      tableState.filters = {};
+    }
+    return refresh(options);
   };
 
   const refreshFilteredRows = () => {
