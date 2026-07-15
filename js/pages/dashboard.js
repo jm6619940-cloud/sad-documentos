@@ -13,7 +13,7 @@ import {
   purchaseRequestsForUser,
   purchaseStats,
   purchaseUsers
-} from "../utils/purchases.js?v=20260709-4";
+} from "../utils/purchases.js";
 
 export function renderDashboard({ user, data, navigate, openRequest }) {
   const page = document.createElement("div");

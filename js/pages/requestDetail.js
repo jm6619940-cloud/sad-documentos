@@ -1,12 +1,12 @@
 import { PRIORITIES, ROLES, STATUS } from "../utils/constants.js";
 import { formatBytes, formatDate } from "../utils/format.js";
-import { dataService } from "../services/dataService.js?v=20260714-2";
+import { dataService } from "../services/dataService.js";
 import { getSupabase } from "../services/supabaseClient.js";
-import { toast } from "../components/toast.js?v=20260708-12";
-import { closeModal, openModal } from "../components/modal.js?v=20260708-12";
+import { toast } from "../components/toast.js";
+import { closeModal, openModal } from "../components/modal.js";
 import { icon } from "../components/icons.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
-import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v=20260709-4";
+import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js";
 
 const PDFJS_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs";
 const PDFJS_WORKER_URL = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";

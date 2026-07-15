@@ -1,7 +1,7 @@
 import { APP_CONFIG } from "../config.js";
 import { getSupabase } from "./supabaseClient.js";
 import { getExtension, validateFiles } from "../utils/validators.js";
-import { optimizePdfFile } from "../utils/pdfOptimizer.js?v=20260714-3";
+import { optimizePdfFile } from "../utils/pdfOptimizer.js";
 
 function stripPassword(values) {
   const { password, ...rest } = values;

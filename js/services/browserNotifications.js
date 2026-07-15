@@ -1,10 +1,11 @@
 import { APP_CONFIG } from "../config.js";
-import { dataService } from "./dataService.js?v=20260714-2";
+import { dataService } from "./dataService.js";
 import { getSupabase } from "./supabaseClient.js";
+import { versioned } from "../utils/appVersion.js";
 
 const POLL_INTERVAL_MS = 30000;
-const ICON_URL = "./assets/icon-192.png?v=20260710-1";
-const SERVICE_WORKER_URL = "./sw.js?v=20260714-18";
+const ICON_URL = "./assets/icon-192.png?v=20260715-1";
+const SERVICE_WORKER_URL = versioned("./sw.js");
 const REALTIME_REFRESH_DELAY_MS = 500;
 const PUSH_REPAIR_KEY = "sad-push-needs-repair";
 

@@ -1,11 +1,11 @@
 import { ROLES } from "../utils/constants.js";
-import { formatDateTimeCompact, normalize } from "../utils/format.js?v=20260708-12";
+import { formatDateTimeCompact, normalize } from "../utils/format.js";
 import { icon } from "../components/icons.js";
 import { pageTitle } from "../components/layout.js";
 import { openModal } from "../components/modal.js";
-import { renderRequestDetail } from "./requestDetail.js?v=20260714-17";
+import { renderRequestDetail } from "./requestDetail.js";
 import { escapeAttr, escapeHtml, textOrDash } from "../utils/security.js";
-import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js?v=20260709-4";
+import { canSeePurchaseModule, isPurchaseRequest } from "../utils/purchases.js";
 
 const TABLE_STATE = new Map();
 let lastStateKey = "";

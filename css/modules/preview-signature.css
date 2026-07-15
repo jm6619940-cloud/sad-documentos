@@ -1,0 +1,627 @@
+.quicklook-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 12, 22, 0.76);
+}
+
+.quicklook {
+  position: relative;
+  width: min(1180px, 100%);
+  height: calc(100vh - 20px);
+  height: calc(100dvh - 20px);
+  max-height: calc(100vh - 20px);
+  max-height: calc(100dvh - 20px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: #101722;
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.42);
+}
+
+.quicklook-header {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  color: white;
+  background: rgba(15, 23, 42, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.quicklook-header h2,
+.quicklook-header p {
+  margin: 0;
+}
+
+.quicklook-header h2 {
+  font-size: 0.98rem;
+  overflow-wrap: anywhere;
+}
+
+.quicklook-header p {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.8rem;
+}
+
+.quicklook-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.quicklook-actions .icon-button {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.quicklook-body {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: #0b111a;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  --quicklook-content-height: calc(100dvh - 104px);
+}
+
+.quicklook-body.is-signing {
+  cursor: crosshair;
+  align-items: center;
+  justify-content: flex-start;
+  flex-direction: column;
+}
+
+.signing-help {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  width: min(720px, calc(100% - 16px));
+  margin: 0 auto 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  color: white;
+  background: rgba(37, 99, 235, 0.94);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.signing-size-control {
+  min-width: min(260px, 100%);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.signing-size-control input {
+  min-width: 120px;
+  accent-color: white;
+}
+
+.signing-size-control output {
+  min-width: 42px;
+  text-align: right;
+}
+
+.signing-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.signing-help .signing-confirm-button {
+  color: #fff;
+  background: var(--primary-strong);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.signing-help .signing-confirm-button:hover,
+.signing-help .signing-confirm-button:focus {
+  color: #fff;
+}
+
+.signing-help .signing-confirm-button:disabled {
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.signable-target {
+  outline: 3px solid rgba(59, 130, 246, 0.88);
+  outline-offset: 4px;
+  cursor: crosshair;
+}
+
+.image-preview-stage,
+.pdf-canvas-stage {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  max-width: 100%;
+}
+
+.image-preview-stage {
+  width: 100%;
+  min-height: min(620px, var(--quicklook-content-height));
+  height: 100%;
+}
+
+.signature-placement {
+  position: absolute;
+  z-index: 4;
+  min-width: 56px;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  touch-action: none;
+  border: 2px solid rgba(37, 99, 235, 0.95);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  padding: 4px;
+}
+
+.signature-placement:active {
+  cursor: grabbing;
+}
+
+.signature-placement img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.quicklook-media {
+  border: 0;
+  border-radius: 6px;
+  background: white;
+}
+
+.quicklook-image {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(100%, var(--quicklook-content-height));
+  object-fit: contain;
+  background: transparent;
+}
+
+.quicklook-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 620px;
+  background: white;
+}
+
+.pdf-preview {
+  width: min(1120px, 100%);
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pdf-loading {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.pdf-pages {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 4px 0 20px;
+}
+
+.pdf-page {
+  width: fit-content;
+  max-width: 100%;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.pdf-page span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+}
+
+.pdf-page canvas {
+  width: auto !important;
+  max-width: min(100%, 920px);
+  max-height: var(--quicklook-content-height);
+  height: auto !important;
+  border-radius: 6px;
+  background: white;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+}
+
+.quicklook .preview-unavailable {
+  width: min(560px, 100%);
+  color: var(--text);
+  background: var(--surface);
+}
+
+.signature-panel .compact-section-header {
+  align-items: flex-start;
+}
+
+.signature-panel .compact-section-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.signature-current {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.signature-current span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.signature-current img {
+  width: min(480px, 100%);
+  max-height: 170px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  padding: 10px;
+}
+
+.signature-current.is-empty {
+  align-content: center;
+}
+
+.signature-current p {
+  margin: 0;
+  font-weight: 750;
+}
+
+.signature-top-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.85fr);
+  gap: 12px;
+  margin: 14px 0;
+  align-items: stretch;
+}
+
+.signature-method-card,
+.signature-preview-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.signature-method-card {
+  align-content: start;
+}
+
+.signature-card-label,
+.signature-preview-card > span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.signature-form {
+  display: grid;
+  gap: 12px;
+}
+
+.signature-workspace {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.2fr) minmax(300px, 0.8fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.signature-side-panel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  align-self: start;
+}
+
+.signature-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.signature-mode-switch label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  margin: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.signature-mode-switch input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.signature-mode-switch label:has(input:checked) {
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.24);
+}
+
+.signature-scan-panel {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.signature-scan-panel[hidden] {
+  display: none;
+}
+
+.signature-scan-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.signature-cleanup-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  animation: signatureControlsReveal 0.18s ease;
+}
+
+.signature-cleanup-actions[hidden] {
+  display: none;
+}
+
+.signature-cleanup-actions .button {
+  min-height: 42px;
+}
+
+.signature-cleanup-actions .button.is-active {
+  color: #fff;
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.22);
+}
+
+.signature-scan-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.signature-scan-actions label {
+  margin: 0;
+  min-height: 44px;
+  width: 100%;
+}
+
+.signature-scan-actions input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.signature-advanced-controls {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.signature-advanced-controls summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-weight: 900;
+  cursor: pointer;
+  list-style: none;
+}
+
+.signature-advanced-controls summary::-webkit-details-marker {
+  display: none;
+}
+
+.signature-advanced-controls summary::after {
+  content: "+";
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-soft);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.signature-advanced-controls[open] summary::after {
+  content: "-";
+  color: var(--primary);
+  transform: rotate(180deg);
+}
+
+.signature-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 12px 12px;
+  animation: signatureControlsReveal 0.22s ease;
+}
+
+@keyframes signatureControlsReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.signature-control {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.signature-control span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.signature-control div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.signature-control input[type="range"] {
+  width: 100%;
+}
+
+.signature-control output {
+  min-width: 58px;
+  color: var(--text);
+  font-weight: 900;
+  text-align: right;
+}
+
+.signature-pad {
+  width: 100%;
+  height: clamp(180px, 24vw, 240px);
+  touch-action: none;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background:
+    linear-gradient(transparent calc(100% - 44px), rgba(37, 99, 235, 0.08) calc(100% - 44px)),
+    #fff;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.03);
+}
+
+.signature-panel .toolbar {
+  justify-content: flex-start;
+}
+
+.signature-panel .signature-actions {
+  gap: 8px;
+}
+
+.signature-panel .button,
+.signature-panel .button.btn {
+  width: auto;
+  min-height: 42px;
+  padding: 9px 14px;
+  font-size: 0.95rem;
+}
+
+.signature-pad.is-readonly {
+  cursor: default;
+  touch-action: auto;
+}
+
+.signature-pad.is-erasing {
+  cursor: crosshair;
+  touch-action: none;
+  border-style: solid;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+}
+
+.signature-security-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 420px);
+  gap: 12px;
+}
+
+.signature-side-panel .signature-security-row {
+  grid-template-columns: 1fr;
+}
+
+.signature-side-panel .signature-security-row .field {
+  margin: 0;
+}
+
+@media (max-width: 1180px) {
+  .signature-top-grid,
+  .signature-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .signature-current img {
+    width: min(360px, 100%);
+  }
+}
+
+.inline-warning {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(183, 121, 31, 0.28);
+  border-radius: 8px;
+  color: #8a5a0a;
+  background: rgba(255, 248, 225, 0.92);
+  font-weight: 800;
+}
+
