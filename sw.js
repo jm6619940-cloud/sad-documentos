@@ -1,18 +1,18 @@
-const CACHE_NAME = "sad-static-v20260715-1";
-const NOTIFICATION_ICON = new URL("./assets/icon-192.png?v=20260715-1", self.registration.scope).href;
+const CACHE_NAME = "sad-static-v20260722-1";
+const NOTIFICATION_ICON = new URL("./assets/icon-192.png?v=20260722-1", self.registration.scope).href;
 const STATIC_ASSETS = [
   "./",
   "./index.html",
-  "./manifest.webmanifest?v=20260715-1",
-  "./css/styles.css?v=20260715-1",
-  "./css/modules/base.css?v=20260715-1",
-  "./css/modules/layout-dashboard.css?v=20260715-1",
-  "./css/modules/tables.css?v=20260715-1",
-  "./css/modules/requests-chat.css?v=20260715-1",
-  "./css/modules/preview-signature.css?v=20260715-1",
-  "./css/modules/feedback.css?v=20260715-1",
-  "./css/modules/responsive.css?v=20260715-1",
-  "./js/app.js?v=20260715-1",
+  "./manifest.webmanifest?v=20260722-1",
+  "./css/styles.css?v=20260722-1",
+  "./css/modules/base.css?v=20260722-1",
+  "./css/modules/layout-dashboard.css?v=20260722-1",
+  "./css/modules/tables.css?v=20260722-1",
+  "./css/modules/requests-chat.css?v=20260722-1",
+  "./css/modules/preview-signature.css?v=20260722-1",
+  "./css/modules/feedback.css?v=20260722-1",
+  "./css/modules/responsive.css?v=20260722-1",
+  "./js/app.js?v=20260722-1",
   "./js/components/layout.js",
   "./js/components/modal.js",
   "./js/components/toast.js",
@@ -35,9 +35,9 @@ const STATIC_ASSETS = [
   "./js/utils/pdfOptimizer.js",
   "./js/utils/security.js",
   "./js/utils/validators.js",
-  "./assets/icon-192.png?v=20260715-1",
+  "./assets/icon-192.png?v=20260722-1",
   "./assets/icon-512.png",
-  "./assets/apple-touch-icon.png?v=20260715-1",
+  "./assets/apple-touch-icon.png?v=20260722-1",
   "./assets/sad-app-icon.svg",
   "./assets/sad-workspace.svg"
 ];

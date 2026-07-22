@@ -67,6 +67,10 @@
     display: block;
   }
 
+  .request-list .request-header.request-grid {
+    display: none;
+  }
+
   .request-row {
     width: 100%;
     min-height: 0;
@@ -89,6 +93,8 @@
     align-items: center;
     gap: 10px;
     width: 100%;
+    min-height: 0;
+    height: auto;
     padding: 9px 12px;
     border-bottom: 1px solid var(--line);
     overflow: visible;
@@ -739,8 +745,13 @@
     display: block;
   }
 
+  .request-list .request-header.request-grid {
+    display: none;
+  }
+
   .request-row {
     width: 100%;
+    min-height: 0;
     padding: 0;
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -752,6 +763,8 @@
   .request-cell {
     display: block;
     width: 100%;
+    min-height: 0;
+    height: auto;
     border-bottom: 1px solid var(--line);
     padding: 12px 14px;
   }
